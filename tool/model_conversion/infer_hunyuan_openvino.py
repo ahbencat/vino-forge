@@ -9,13 +9,19 @@ stateful KV cache). Point --model-dir at the exported model directory.
 import argparse
 import json
 import time
+import sys
 from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT_DIR))
+
+from lib.paths import ROOT_DIR, TIMESTAMP_MODEL_DIR
 
 from optimum.intel import OVModelForCausalLM
 from transformers import AutoTokenizer, logging
 
 
-DEFAULT_MODEL_DIR = Path(r"D:\Projects\whisper_cpp_win\Hy-MT2-1.8B-ov-optimum")
+DEFAULT_MODEL_DIR = TIMESTAMP_MODEL_DIR
 
 # Inference parameters recommended by the Hy-MT2 model card
 RECOMMENDED = {

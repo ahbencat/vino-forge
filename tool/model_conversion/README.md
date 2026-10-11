@@ -57,11 +57,11 @@ pip install transformers
 
 ### Script layout
 
-The conversion and inference scripts live in `tools/model_conversion/`:
+The conversion and inference scripts live in `tool/model_conversion/`:
 
 ```
 <repo root>/
-└── tools/model_conversion/
+└── tool/model_conversion/
     ├── convert_hunyuan_optimum.py   # FP16 export
     ├── convert_hunyuan_int4.py      # INT4 quantization
     ├── infer_hunyuan_openvino.py    # inference
@@ -70,17 +70,21 @@ The conversion and inference scripts live in `tools/model_conversion/`:
 
 ### Model layout
 
-Models are not distributed with this repository — download and place them yourself. The defaults baked into the scripts are absolute Windows paths from the development machine:
+Models are not distributed with this repository — download and place them yourself. The scripts look for original PyTorch models in the repository's parent directory and write OpenVINO exports under `models/` by default:
 
 ```
-D:\Projects\whisper_cpp_win\
-├── Hy-MT2-1.8B\              # original PyTorch 1.8B
-├── Hy-MT2-7B\                # original PyTorch 7B
-├── Hy-MT2-1.8B-ov-optimum\   # exported OpenVINO FP16 1.8B
-└── Hy-MT2-7B-ov-int4\        # exported OpenVINO INT4 7B
+<repo parent>/
+├── Hy-MT2-1.8B/              # optional original PyTorch 1.8B
+└── Hy-MT2-7B/                # optional original PyTorch 7B
+
+<repo>/models/
+├── Hy-MT2-1.8B-ov-optimum/   # exported OpenVINO FP16 1.8B
+└── Hy-MT2-7B-ov-int4/        # exported OpenVINO INT4 7B
 ```
 
-> **On a different machine**: override with the `--model-dir` / `--output-dir` command-line options, or edit the `DEFAULT_MODEL_DIR` / `MODEL_DIR` constants at the top of each script. `test_openvino_model.py` takes no arguments — you have to edit it.
+Source-model folders may instead be specified with `--model-dir`; conversion outputs can be redirected with `--output-dir`.
+
+> **On a different machine**: pass `--model-dir` / `--output-dir` explicitly. The smoke test defaults to `models/Hy-MT2-1.8B-ov-optimum`.
 
 ---
 
@@ -88,10 +92,10 @@ D:\Projects\whisper_cpp_win\
 
 | Script | Purpose | Models |
 |--------|---------|--------|
-| `convert_hunyuan_optimum.py` | optimum-intel FP16 export + stateful KV cache | 1.8B / 7B |
-| `convert_hunyuan_int4.py` | Two steps: FP16 export, then NNCF INT4 weight quantization | 7B (recommended) |
-| `infer_hunyuan_openvino.py` | Load an OpenVINO model and run translation inference | any of the above |
-| `test_openvino_model.py` | Minimal load + generate smoke test (no arguments, edit the constants) | any of the above |
+| `tool/model_conversion/convert_hunyuan_optimum.py` | optimum-intel FP16 export + stateful KV cache | 1.8B / 7B |
+| `tool/model_conversion/convert_hunyuan_int4.py` | Two steps: FP16 export, then NNCF INT4 weight quantization | 7B (recommended) |
+| `tool/model_conversion/infer_hunyuan_openvino.py` | Load an OpenVINO model and run translation inference | any of the above |
+| `tool/model_conversion/test_openvino_model.py` | Minimal load + generate smoke test (no arguments, edit the constants) | any of the above |
 
 ---
 
@@ -102,15 +106,13 @@ Uses optimum-intel's `main_export()` pipeline to produce FP16 with a stateful KV
 ### Commands
 
 ```bash
-cd tools/model_conversion
-
 # Export the 1.8B (default)
-python convert_hunyuan_optimum.py
+python tool/model_conversion/convert_hunyuan_optimum.py
 
 # Export the 7B (explicit paths)
-python convert_hunyuan_optimum.py \
-    --model-dir "D:\Projects\whisper_cpp_win\Hy-MT2-7B" \
-    --output-dir "D:\Projects\whisper_cpp_win\Hy-MT2-7B-ov-fp16"
+python tool/model_conversion/convert_hunyuan_optimum.py \
+    --model-dir "Hy-MT2-7B" \
+    --output-dir "Hy-MT2-7B-ov-fp16"
 ```
 
 ### Options
@@ -155,9 +157,7 @@ Intended for taking the 7B from ~14 GB down to ~4 GB.
 ### Commands
 
 ```bash
-cd tools/model_conversion
-
-python convert_hunyuan_int4.py
+python tool/model_conversion/convert_hunyuan_int4.py
 ```
 
 ### Options
@@ -200,33 +200,31 @@ nncf.compress_weights(
 ### Basic usage
 
 ```bash
-cd tools/model_conversion
-
 # Defaults to Hy-MT2-1.8B-ov-optimum on CPU
-python infer_hunyuan_openvino.py
+python tool/model_conversion/infer_hunyuan_openvino.py
 
 # INT4 7B on GPU
-python infer_hunyuan_openvino.py \
-    --model-dir "D:\Projects\whisper_cpp_win\Hy-MT2-7B-ov-int4" \
+python tool/model_conversion/infer_hunyuan_openvino.py \
+    --model-dir "Hy-MT2-7B-ov-int4" \
     --device GPU
 
 # Translate a sentence
-python infer_hunyuan_openvino.py \
+python tool/model_conversion/infer_hunyuan_openvino.py \
     --text "The global economy is facing unprecedented challenges." \
     --tgt-lang "中文"
 
 # Translate into English
-python infer_hunyuan_openvino.py \
+python tool/model_conversion/infer_hunyuan_openvino.py \
     --text "全球经济正面临前所未有的挑战。" \
     --tgt-lang "English"
 
 # Custom prompt (skips the built-in translation prompt)
-python infer_hunyuan_openvino.py \
+python tool/model_conversion/infer_hunyuan_openvino.py \
     --prompt "Summarize the following text: ..." \
     --max-new-tokens 256
 
 # Skip the chat template (feed the raw prompt)
-python infer_hunyuan_openvino.py \
+python tool/model_conversion/infer_hunyuan_openvino.py \
     --text "Hello, how are you?" \
     --tgt-lang "中文" \
     --no-chat-template
@@ -273,7 +271,7 @@ Translate the following text into English. Note that you should only output the 
 ============================================================
 Hy-MT2 OpenVINO 翻译推理
 ============================================================
-  Model:  D:\Projects\whisper_cpp_win\Hy-MT2-7B-ov-int4
+  Model:  Hy-MT2-7B-ov-int4
   Device: GPU
 
 Loaded in 18.03s
@@ -300,7 +298,7 @@ Stats:
 To just confirm a model loads and generates, use `test_openvino_model.py`. It takes no command-line arguments — edit the `MODEL_DIR` / `DEVICE` constants at the top:
 
 ```bash
-python test_openvino_model.py
+python tool/model_conversion/test_openvino_model.py
 ```
 
 ---

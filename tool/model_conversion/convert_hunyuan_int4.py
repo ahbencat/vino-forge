@@ -6,7 +6,13 @@ Hy-MT2-7B -> OpenVINO INT4 (两步：先导出 FP16 + stateful，再 NNCF 权重
 import argparse
 import gc
 import shutil
+import sys
 from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT_DIR))
+
+from lib.paths import ROOT_DIR, SOURCE_MODEL_ROOT
 
 import numpy as np
 import openvino as ov
@@ -14,8 +20,8 @@ import tempfile
 import torch
 
 
-MODEL_DIR = Path(r"D:\Projects\whisper_cpp_win\Hy-MT2-7B")
-OUTPUT_DIR = Path(r"D:\Projects\whisper_cpp_win\Hy-MT2-7B-ov-int4")
+MODEL_DIR = SOURCE_MODEL_ROOT / "Hy-MT2-7B"
+OUTPUT_DIR = ROOT_DIR / "models" / "Hy-MT2-7B-ov-int4"
 
 
 def register_hunyuan_config():
@@ -34,9 +40,9 @@ def register_hunyuan_config():
         pass
 
 
-def export_fp16(device: str):
+def export_fp16(model_dir: Path, output_dir: Path, device: str):
     """Step 1: export stateful FP16 model."""
-    ov_dir = OUTPUT_DIR / "_fp16"
+    ov_dir = output_dir / "_fp16"
     if ov_dir.exists():
         shutil.rmtree(ov_dir)
 
@@ -47,7 +53,7 @@ def export_fp16(device: str):
 
     print("[1/2] Exporting FP16 stateful model...")
     main_export(
-        model_name_or_path=str(MODEL_DIR),
+        model_name_or_path=str(model_dir),
         output=str(ov_dir),
         task="text-generation-with-past",
         device=device.lower(),
@@ -74,7 +80,7 @@ def export_fp16(device: str):
     return ov_dir
 
 
-def quantize_int4(fp16_dir: Path):
+def quantize_int4(fp16_dir: Path, output_dir: Path):
     """Step 2: NNCF INT4 weight compression on the exported IR."""
     print()
     print("[2/2] Applying NNCF INT4 weight compression...")
@@ -116,41 +122,45 @@ def quantize_int4(fp16_dir: Path):
             shutil.copy2(f, tmp_dir / f.name)
 
     # Replace OUTPUT_DIR with tmp_dir (use shutil.move for cross-drive)
-    if OUTPUT_DIR.exists():
-        shutil.rmtree(OUTPUT_DIR, ignore_errors=True)
+    if output_dir.exists():
+        shutil.rmtree(output_dir, ignore_errors=True)
     shutil.rmtree(fp16_dir, ignore_errors=True)
-    shutil.move(str(tmp_dir), str(OUTPUT_DIR))
+    shutil.move(str(tmp_dir), str(output_dir))
 
     return int4_gb
 
 
-def show_output():
+def show_output(output_dir: Path):
     print()
     print("[OK] Done!")
-    print(f"  Output: {OUTPUT_DIR}")
-    for f in sorted(OUTPUT_DIR.rglob("*")):
+    print(f"  Output: {output_dir}")
+    for f in sorted(output_dir.rglob("*")):
         if f.is_file() and f.suffix in (".xml", ".bin"):
             mb = f.stat().st_size / 1024**2
-            print(f"    {f.relative_to(OUTPUT_DIR)}  ({mb:.1f} MB)")
+            print(f"    {f.relative_to(output_dir)}  ({mb:.1f} MB)")
 
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--model-dir", type=Path, default=MODEL_DIR)
+    parser.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     parser.add_argument("--device", default="CPU", choices=["CPU", "GPU"])
     parser.add_argument("--no-clean", action="store_true")
     args = parser.parse_args()
 
-    if not MODEL_DIR.exists():
-        raise FileNotFoundError(f"Model directory not found: {MODEL_DIR}")
+    model_dir = args.model_dir
+    output_dir = args.output_dir
+    if not model_dir.exists():
+        raise FileNotFoundError(f"Model directory not found: {model_dir}")
 
-    fp16_dir = OUTPUT_DIR / "_fp16"
+    fp16_dir = output_dir / "_fp16"
     if not fp16_dir.exists() or not (fp16_dir / "openvino_model.xml").exists():
-        fp16_dir = export_fp16(args.device)
+        fp16_dir = export_fp16(model_dir, output_dir, args.device)
     else:
         print("[1/2] FP16 temp dir already exists, skipping export")
 
-    int4_gb = quantize_int4(fp16_dir)
-    show_output()
+    int4_gb = quantize_int4(fp16_dir, output_dir)
+    show_output(output_dir)
 
 
 if __name__ == "__main__":

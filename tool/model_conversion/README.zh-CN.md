@@ -57,11 +57,11 @@ pip install transformers
 
 ### 脚本目录结构
 
-转换与推理脚本位于本仓库的 `tools/model_conversion/`：
+转换与推理脚本位于本仓库的 `tool/model_conversion/`：
 
 ```
 <仓库根>/
-└── tools/model_conversion/
+└── tool/model_conversion/
     ├── convert_hunyuan_optimum.py   # FP16 导出
     ├── convert_hunyuan_int4.py      # INT4 量化
     ├── infer_hunyuan_openvino.py    # 推理脚本
@@ -70,17 +70,21 @@ pip install transformers
 
 ### 模型目录结构
 
-模型不随仓库分发，需自行下载并存放。脚本内的默认路径是开发机上的 Windows 绝对路径：
+模型不随仓库分发，需自行下载并存放。脚本默认从仓库父目录查找原始 PyTorch 模型，并将 OpenVINO 导出模型写入 `models/`：
 
 ```
-D:\Projects\whisper_cpp_win\
-├── Hy-MT2-1.8B\              # 原始 PyTorch 1.8B 模型
-├── Hy-MT2-7B\                # 原始 PyTorch 7B 模型
-├── Hy-MT2-1.8B-ov-optimum\   # 导出后的 OpenVINO FP16 1.8B
-└── Hy-MT2-7B-ov-int4\        # 导出后的 OpenVINO INT4 7B
+<仓库父目录>/
+├── Hy-MT2-1.8B/              # 可选：原始 PyTorch 1.8B 模型
+└── Hy-MT2-7B/                # 可选：原始 PyTorch 7B 模型
+
+<仓库>/models/
+├── Hy-MT2-1.8B-ov-optimum/   # 导出的 OpenVINO FP16 1.8B
+└── Hy-MT2-7B-ov-int4/        # 导出的 OpenVINO INT4 7B
 ```
 
-> **换机器时**：用 `--model-dir` / `--output-dir` 命令行参数覆盖，或直接改脚本顶部的 `DEFAULT_MODEL_DIR` / `MODEL_DIR` 常量。`test_openvino_model.py` 没有命令行参数，只能改脚本。
+原始模型也可通过 `--model-dir` 指定，导出路径可通过 `--output-dir` 修改。
+
+> **换机器时**：用 `--model-dir` / `--output-dir` 命令行参数指定路径。测试脚本默认加载 `models/Hy-MT2-1.8B-ov-optimum`。
 
 ---
 
@@ -88,10 +92,10 @@ D:\Projects\whisper_cpp_win\
 
 | 脚本 | 用途 | 适用模型 |
 |------|------|----------|
-| `convert_hunyuan_optimum.py` | optimum-intel FP16 导出 + stateful KV cache | 1.8B / 7B |
-| `convert_hunyuan_int4.py` | 两步：先 FP16 导出，再 NNCF INT4 权重量化 | 7B（推荐） |
-| `infer_hunyuan_openvino.py` | 加载 OpenVINO 模型进行翻译推理 | 以上任意导出 |
-| `test_openvino_model.py` | 最小加载 + 生成冒烟测试（无参数，改脚本内常量） | 以上任意导出 |
+| `tool/model_conversion/convert_hunyuan_optimum.py` | optimum-intel FP16 导出 + stateful KV cache | 1.8B / 7B |
+| `tool/model_conversion/convert_hunyuan_int4.py` | 两步：先 FP16 导出，再 NNCF INT4 权重量化 | 7B（推荐） |
+| `tool/model_conversion/infer_hunyuan_openvino.py` | 加载 OpenVINO 模型进行翻译推理 | 以上任意导出 |
+| `tool/model_conversion/test_openvino_model.py` | 最小加载 + 生成冒烟测试（无参数，改脚本内常量） | 以上任意导出 |
 
 ---
 
@@ -102,15 +106,13 @@ D:\Projects\whisper_cpp_win\
 ### 命令
 
 ```bash
-cd tools/model_conversion
-
 # 导出 1.8B 模型（默认）
-python convert_hunyuan_optimum.py
+python tool/model_conversion/convert_hunyuan_optimum.py
 
 # 导出 7B 模型（指定路径）
-python convert_hunyuan_optimum.py \
-    --model-dir "D:\Projects\whisper_cpp_win\Hy-MT2-7B" \
-    --output-dir "D:\Projects\whisper_cpp_win\Hy-MT2-7B-ov-fp16"
+python tool/model_conversion/convert_hunyuan_optimum.py \
+    --model-dir "Hy-MT2-7B" \
+    --output-dir "Hy-MT2-7B-ov-fp16"
 ```
 
 ### 参数说明
@@ -155,9 +157,7 @@ Hy-MT2-1.8B-ov-optimum/
 ### 命令
 
 ```bash
-cd tools/model_conversion
-
-python convert_hunyuan_int4.py
+python tool/model_conversion/convert_hunyuan_int4.py
 ```
 
 ### 参数说明
@@ -200,33 +200,31 @@ nncf.compress_weights(
 ### 基本用法
 
 ```bash
-cd tools/model_conversion
-
 # 默认使用 Hy-MT2-1.8B-ov-optimum（CPU）
-python infer_hunyuan_openvino.py
+python tool/model_conversion/infer_hunyuan_openvino.py
 
 # 指定 INT4 7B 模型 + GPU
-python infer_hunyuan_openvino.py \
-    --model-dir "D:\Projects\whisper_cpp_win\Hy-MT2-7B-ov-int4" \
+python tool/model_conversion/infer_hunyuan_openvino.py \
+    --model-dir "Hy-MT2-7B-ov-int4" \
     --device GPU
 
 # 翻译句子
-python infer_hunyuan_openvino.py \
+python tool/model_conversion/infer_hunyuan_openvino.py \
     --text "The global economy is facing unprecedented challenges." \
     --tgt-lang "中文"
 
 # 翻译到英文
-python infer_hunyuan_openvino.py \
+python tool/model_conversion/infer_hunyuan_openvino.py \
     --text "全球经济正面临前所未有的挑战。" \
     --tgt-lang "English"
 
 # 使用自定义 prompt（跳过自动翻译 prompt 构建）
-python infer_hunyuan_openvino.py \
+python tool/model_conversion/infer_hunyuan_openvino.py \
     --prompt "Summarize the following text: ..." \
     --max-new-tokens 256
 
 # 不使用 chat template（直接输入原始 prompt）
-python infer_hunyuan_openvino.py \
+python tool/model_conversion/infer_hunyuan_openvino.py \
     --text "Hello, how are you?" \
     --tgt-lang "中文" \
     --no-chat-template
@@ -273,7 +271,7 @@ Translate the following text into English. Note that you should only output the 
 ============================================================
 Hy-MT2 OpenVINO 翻译推理
 ============================================================
-  Model:  D:\Projects\whisper_cpp_win\Hy-MT2-7B-ov-int4
+  Model:  Hy-MT2-7B-ov-int4
   Device: GPU
 
 Loaded in 18.03s
@@ -300,7 +298,7 @@ Stats:
 只想确认模型能加载并生成，用 `test_openvino_model.py`。它没有命令行参数，改脚本顶部的 `MODEL_DIR` / `DEVICE` 常量即可：
 
 ```bash
-python test_openvino_model.py
+python tool/model_conversion/test_openvino_model.py
 ```
 
 ---

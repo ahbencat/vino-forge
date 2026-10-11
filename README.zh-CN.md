@@ -33,11 +33,13 @@ Whisper 自带的 `translate` 任务只能输出英文。目标语言只要不�
 
 | 路径 | 作用 |
 |------|------|
-| `generate_and_translate.py` | 一键入口：视频/音频 → 原语言 SRT → 翻译后 SRT |
-| `batch_generate.py` | 批量入口：扫描整个文件夹，处理其中每个视频 |
-| `video_to_subtitle.py` | 视频/音频 → SRT（Whisper Large-v3 + Silero VAD） |
-| `translate_srt.py` | SRT → 翻译后 SRT（Hy-MT2），时间轴不变 |
-| `tools/model_conversion/` | Hunyuan → OpenVINO 导出（FP16 / INT4）+ 推理验证 |
+| `script/generate_and_translate.py` | 一键入口：视频/音频 → 原语言 SRT → 翻译后 SRT |
+| `script/batch_generate.py` | 批量命令行入口：扫描目录并逐个处理视频 |
+| `script/video_to_subtitle.py`、`script/translate_srt.py` | 转录和翻译的命令行入口 |
+| `script/whisper_timestamp_srt.py` | Whisper 内部时间戳的独立 CLI |
+| `gui/gui_app.py` | 可选 PySide6 图形界面：单文件或进程内批处理 |
+| `lib/` | 可复用的 ASR、翻译与仓库路径模块 |
+| `tool/model_conversion/` | Hunyuan → OpenVINO 导出（FP16 / INT4）+ 推理验证 |
 | `models/` | 模型卡；权重下载到对应文件夹 |
 
 ## 环境要求
@@ -78,7 +80,7 @@ hf download OpenVINO/whisper-large-v3-fp16-ov --local-dir models/whisper-large-v
 modelscope download --model ahbencat/Hy-MT2-7B-ov-int4 --local_dir models/Hy-MT2-7B-ov-int4
 ```
 
-或自行转换（1.8B FP16，或自定义 INT4 参数）—— 见 [`tools/model_conversion/README.zh-CN.md`](tools/model_conversion/README.zh-CN.md)。
+或自行转换（1.8B FP16，或自定义 INT4 参数）—— 见 [`tool/model_conversion/README.zh-CN.md`](tool/model_conversion/README.zh-CN.md)。
 
 模型放别处也行，用 `--model-dir` 指向即可。
 
@@ -86,38 +88,47 @@ modelscope download --model ahbencat/Hy-MT2-7B-ov-int4 --local_dir models/Hy-MT2
 
 ```bash
 # 单个文件：转录 + 翻译（默认目标语言为中文）
-python generate_and_translate.py "input.mkv"
+python script/generate_and_translate.py "input.mkv"
 
 # 指定源语言，输出英文
-python generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang English
+python script/generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang English
 
 # 只转录，不翻译
-python generate_and_translate.py "input.mkv" --tgt-lang None
+python script/generate_and_translate.py "input.mkv" --tgt-lang None
 ```
 
 ### 3. 或批量处理文件夹
 
 ```bash
 # ./videos 下所有视频（递归扫描，已有 .srt 的自动跳过）
-python batch_generate.py "./videos"
+python script/batch_generate.py "./videos"
 
 # 预览将要处理的文件
-python batch_generate.py "./videos" --dry-run
+python script/batch_generate.py "./videos" --dry-run
 
 # 自定义语言 / 设备
-python batch_generate.py "./videos" --src-lang ja --tgt-lang English --asr-device GPU.1 --trans-device GPU
+python script/batch_generate.py "./videos" --src-lang ja --tgt-lang English --asr-device GPU.1 --trans-device GPU
 ```
 
-### 分步执行
+### 4. 图形界面
 
-上面的入口通过 subprocess 调用两个阶段，也可以直接运行：
+安装可选依赖并启动 GUI：
 
 ```bash
-python video_to_subtitle.py "input.mkv" --task transcribe --language zh   # 视频 → SRT
-python translate_srt.py input.srt --tgt-lang 中文                          # SRT → 翻译后 SRT
+pip install PySide6
+python gui/gui_app.py
 ```
 
-完整参数见各脚本 `--help`。
+顶部可选单个媒体文件或文件夹；选文件夹时会在 GUI 内批量转录和翻译，Whisper 与 Hy-MT2 模型在整个批次中复用。批量选项支持递归子目录、跳过已有 SRT、跳过名称带 `-C` / `-CH` 标记的目录。停止会在当前模型推理段/翻译块完成后中止。
+
+### 单独执行各阶段
+
+```bash
+python script/video_to_subtitle.py "input.mkv" --task transcribe --language zh
+python script/translate_srt.py input.srt --tgt-lang 中文
+```
+
+可复用实现位于 `lib/`，对应的命令行入口位于 `script/`。
 
 ## 性能实测
 
@@ -152,7 +163,7 @@ python translate_srt.py input.srt --tgt-lang 中文                          # S
 
 | 文档 | 内容 |
 |------|------|
-| [`tools/model_conversion/README.zh-CN.md`](tools/model_conversion/README.zh-CN.md) | Hunyuan → OpenVINO 转换与推理指南 |
+| [`tool/model_conversion/README.zh-CN.md`](tool/model_conversion/README.zh-CN.md) | Hunyuan → OpenVINO 转换与推理指南 |
 | [`models/SILERO_VAD/README.zh-CN.md`](models/SILERO_VAD/README.zh-CN.md) | Silero VAD 模型卡与缺失恢复 |
 | [`models/whisper-large-v3-fp16-ov/README.md`](models/whisper-large-v3-fp16-ov/README.md) | Whisper 模型卡 |
 | [`models/Hy-MT2-7B-ov-int4/README.zh-CN.md`](models/Hy-MT2-7B-ov-int4/README.zh-CN.md) | Hy-MT2 INT4 模型卡 |

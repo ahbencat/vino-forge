@@ -3,12 +3,18 @@
 Hy-MT2-1.8B OpenVINO 推理测试
 """
 
+import sys
 from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT_DIR))
+
+from lib.paths import TIMESTAMP_MODEL_DIR
 from optimum.intel import OVModelForCausalLM
 from transformers import AutoTokenizer
 
 
-MODEL_DIR = Path(r"D:\Projects\whisper_cpp_win\Hy-MT2-1.8B-ov")
+MODEL_DIR = TIMESTAMP_MODEL_DIR
 DEVICE = "CPU"  # CPU / GPU / AUTO
 
 

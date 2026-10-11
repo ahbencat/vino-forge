@@ -3,9 +3,9 @@
 One-shot subtitle generation + translation.
 
 Usage:
-    python generate_and_translate.py "input.mkv"
-    python generate_and_translate.py "input.mkv" --tgt-lang English
-    python generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang 中文 --asr-device GPU.1 --trans-device GPU
+    python script/generate_and_translate.py "input.mkv"
+    python script/generate_and_translate.py "input.mkv" --tgt-lang English
+    python script/generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang 中文 --asr-device GPU.1 --trans-device GPU
 
 How it works:
     1. video_to_subtitle.py generates source-language subtitles (transcribe mode)
@@ -21,10 +21,14 @@ import tempfile
 import time
 from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT_DIR))
 
-SCRIPT_DIR = Path(__file__).parent
-DEFAULT_ASR_MODEL_DIR = SCRIPT_DIR / "models" / "whisper-large-v3-fp16-ov"
-DEFAULT_TRANS_MODEL_DIR = SCRIPT_DIR / "models" / "Hy-MT2-7B-ov-int4"
+from lib.paths import ASR_MODEL_DIR, TRANSLATION_MODEL_DIR
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+DEFAULT_ASR_MODEL_DIR = ASR_MODEL_DIR
+DEFAULT_TRANS_MODEL_DIR = TRANSLATION_MODEL_DIR
 
 VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".mpeg", ".mpg"}
 AUDIO_EXTS = {".wav", ".mp3", ".flac", ".aac", ".m4a", ".ogg", ".wma"}
@@ -74,22 +78,22 @@ def main():
         epilog="""
 示例:
   # 默认：自动生成中文字幕
-  python generate_and_translate.py "input.mkv"
+  python script/generate_and_translate.py "input.mkv"
 
   # 生成英文字幕
-  python generate_and_translate.py "input.mkv" --tgt-lang English
+  python script/generate_and_translate.py "input.mkv" --tgt-lang English
 
   # 已知源语言为日语，翻译为中文
-  python generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang 中文
+  python script/generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang 中文
 
   # 指定 ASR 和翻译设备
-  python generate_and_translate.py "input.mkv" --asr-device CPU --trans-device GPU.1
+  python script/generate_and_translate.py "input.mkv" --asr-device CPU --trans-device GPU.1
 
   # 跳过翻译，只生成原语言字幕
-  python generate_and_translate.py "input.mkv" --tgt-lang None
+  python script/generate_and_translate.py "input.mkv" --tgt-lang None
 
   # 保留中间原语言字幕
-  python generate_and_translate.py "input.mkv" --keep-temp
+  python script/generate_and_translate.py "input.mkv" --keep-temp
         """,
     )
 
@@ -157,7 +161,7 @@ def main():
         # ========== Step 1: generate source-language subtitles ==========
         cmd1 = [
             sys.executable,
-            str(Path(__file__).parent / "video_to_subtitle.py"),
+            str(SCRIPT_DIR / "video_to_subtitle.py"),
             str(input_path),
             "--model-dir", args.asr_model_dir,
             "--device", args.asr_device,
@@ -185,7 +189,7 @@ def main():
         else:
             cmd2 = [
                 sys.executable,
-                str(Path(__file__).parent / "translate_srt.py"),
+                str(SCRIPT_DIR / "translate_srt.py"),
                 str(src_srt),
                 "--tgt-lang", args.tgt_lang,
                 "--model-dir", args.trans_model_dir,

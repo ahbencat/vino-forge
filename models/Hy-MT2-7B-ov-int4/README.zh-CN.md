@@ -6,7 +6,7 @@
 
 - **模型主页**：<https://modelscope.cn/models/ahbencat/Hy-MT2-7B-ov-int4>
 - **模型作者**：[Tencent](https://huggingface.co/tencent) —— 原始模型 [tencent/Hy-MT2-7B](https://huggingface.co/tencent/Hy-MT2-7B)
-- **转换工具**：由仓库内 [`tools/model_conversion/`](../../tools/model_conversion/README.zh-CN.md) 的脚本使用 optimum-intel + NNCF 导出
+- **转换工具**：由仓库内 [`tool/model_conversion/`](../../tool/model_conversion/README.zh-CN.md) 的脚本使用 optimum-intel + NNCF 导出
 
 ## 量化信息
 
@@ -56,7 +56,7 @@ print(tokenizer.decode(outputs[0][inputs.shape[-1]:], skip_special_tokens=True))
 
 推荐采样参数（已写入 `generation_config.json`）：temperature 0.7、top_p 0.8、top_k 20、repetition_penalty 1.05。
 
-命令行翻译验证：见 [`tools/model_conversion/infer_hunyuan_openvino.py`](../../tools/model_conversion/README.zh-CN.md#推理测试)。
+命令行翻译验证：见 [`tool/model_conversion/infer_hunyuan_openvino.py`](../../tool/model_conversion/README.zh-CN.md#推理测试)。
 
 ## 性能
 

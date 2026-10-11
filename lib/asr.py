@@ -3,8 +3,8 @@
 Video subtitle generator based on OpenVINO + Whisper Large-v3.
 
 Usage:
-    python video_to_subtitle.py "input.mkv"
-    python video_to_subtitle.py "input.mkv" --device GPU.1 --language en --task translate
+    python script/video_to_subtitle.py "input.mkv"
+    python script/video_to_subtitle.py "input.mkv" --device GPU.1 --language en --task translate
 """
 
 import os
@@ -14,13 +14,14 @@ import subprocess
 import tempfile
 import json
 import time
+import math
 from pathlib import Path
 
 import numpy as np
 import torch
 import soundfile as sf
 import transformers
-import math
+from lib.paths import ASR_MODEL_DIR, CACHE_DIR, FFMPEG_PATH, VAD_MODEL_PATH
 
 transformers.logging.set_verbosity_error()
 
@@ -35,16 +36,10 @@ except ImportError as e:
 
 
 # ============= Config =============
-SCRIPT_DIR = Path(__file__).parent
-DEFAULT_MODEL_DIR = SCRIPT_DIR / "models" / "whisper-large-v3-fp16-ov"
+DEFAULT_MODEL_DIR = ASR_MODEL_DIR
 DEFAULT_DEVICE = "GPU.1"
 DEFAULT_TASK = "translate"
 DEFAULT_LANGUAGE = "en"
-# ffmpeg executable: resolved from PATH by default,
-# or set the FFMPEG_PATH environment variable to a full path
-FFMPEG_PATH = os.environ.get("FFMPEG_PATH", "ffmpeg")
-
-
 # ============= Audio extraction =============
 def extract_audio(video_path, output_wav=None, sample_rate=16000):
     """Extract audio from a video as 16 kHz mono wav."""
@@ -158,7 +153,6 @@ def write_srt(chunks, output_path):
 
 
 # ============= Silero VAD =============
-VAD_MODEL_PATH = Path(__file__).parent / "models" / "SILERO_VAD" / "silero_vad.onnx"
 
 def load_vad_model():
     """Load the Silero VAD model (local ONNX file, global singleton)."""
@@ -224,11 +218,11 @@ def vad_get_segments(audio_path, model, get_speech_timestamps,
 
 # ============= Main processing class =============
 class VideoSubtitleGenerator:
-    def __init__(self, model_dir=None, device=DEFAULT_DEVICE, cache_dir="./model_cache"):
+    def __init__(self, model_dir=None, device=DEFAULT_DEVICE, cache_dir=None):
         self.model_dir = model_dir or DEFAULT_MODEL_DIR
         self.device = device
-        self.cache_dir = Path(cache_dir).absolute()
-        self.cache_dir.mkdir(exist_ok=True)
+        self.cache_dir = Path(cache_dir or CACHE_DIR).absolute()
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
 
         self.model = None
         self.processor = None
@@ -315,7 +309,7 @@ class VideoSubtitleGenerator:
                     result.append((s, e, max(s, speech_start), min(e, speech_end)))
         return result
 
-    def transcribe(self, audio_path, task=DEFAULT_TASK, language=DEFAULT_LANGUAGE, num_beams=None):
+    def transcribe(self, audio_path, task=DEFAULT_TASK, language=DEFAULT_LANGUAGE, num_beams=None, check_cancel=None):
         """Transcribe audio."""
         if not self.pipe:
             self.build_pipeline()
@@ -324,10 +318,14 @@ class VideoSubtitleGenerator:
         print("   task:", task, "| language:", language)
         gen_kwargs = self._gen_kwargs(task, language, num_beams)
         print("   generate_kwargs:", gen_kwargs)
+        if check_cancel is not None:
+            check_cancel()
 
         start = time.time()
 
         result = self.pipe(audio_path, generate_kwargs=gen_kwargs)
+        if check_cancel is not None:
+            check_cancel()
 
         elapsed = time.time() - start
 
@@ -341,7 +339,8 @@ class VideoSubtitleGenerator:
                             vad_threshold=0.5, vad_merge_gap_ms=500, vad_padding_ms=300,
                             chunk_length_s=30, batch_size=1, num_beams=None,
                             whisper_timestamps=False,
-                            whisper_start_offset=0.0, whisper_end_offset=0.0):
+                            whisper_start_offset=0.0, whisper_end_offset=0.0,
+                            check_cancel=None):
         """Detect speech segments with VAD, then transcribe segment by segment."""
         if not self.pipe:
             self.build_pipeline(chunk_length_s=chunk_length_s, batch_size=batch_size)
@@ -361,6 +360,7 @@ class VideoSubtitleGenerator:
         vad_start = time.time()
         segments, audio, sr, raw_segments = vad_get_segments(
             audio_path, vad_model, get_speech_timestamps,
+            threshold=vad_threshold,
             merge_gap_ms=vad_merge_gap_ms, padding_ms=vad_padding_ms
         )
         n_merged = len(segments)
@@ -386,6 +386,8 @@ class VideoSubtitleGenerator:
         segment_timings = []
 
         for idx, (seg_start, seg_end, speech_start, speech_end) in enumerate(segments):
+            if check_cancel is not None:
+                check_cancel()
             seg_len = seg_end - seg_start
             print("\r   [{}/{}] {:4.1f}s".format(idx + 1, total_segments, seg_len), end="", flush=True)
             if seg_len < 0.3:
@@ -398,6 +400,8 @@ class VideoSubtitleGenerator:
 
             t0 = time.time()
             seg_result = self.pipe({"array": seg_audio, "sampling_rate": int(sr)}, generate_kwargs=gen_kwargs)
+            if check_cancel is not None:
+                check_cancel()
             seg_time = time.time() - t0
             segment_timings.append(seg_time)
 
@@ -528,16 +532,16 @@ def main():
         epilog="""
 示例:
   # 最简单用法
-  python video_to_subtitle.py "F:/Video/Movie/Ghostbusters...mkv"
+  python script/video_to_subtitle.py "input.mkv"
 
   # 自定义参数
-  python video_to_subtitle.py "input.mkv" --device GPU.1 --task translate --language en
+  python script/video_to_subtitle.py "input.mkv" --device GPU.1 --task translate --language en
 
   # 保留中间音频文件 (调试)
-  python video_to_subtitle.py "input.mkv" --keep-audio
+  python script/video_to_subtitle.py "input.mkv" --keep-audio
 
   # 调试单音频文件 (不提取音轨)
-  python video_to_subtitle.py "audio.wav" --audio-only
+  python script/video_to_subtitle.py "audio.wav" --audio-only
         """
     )
 
@@ -580,8 +584,8 @@ def main():
                         help="保留中间 wav 音频文件 (调试用)")
     parser.add_argument("--audio-only", action="store_true",
                         help="输入是音频文件, 跳过 ffmpeg 提取")
-    parser.add_argument("--cache-dir", default="./model_cache",
-                        help="OpenVINO 模型缓存目录 (默认: ./model_cache)")
+    parser.add_argument("--cache-dir", default=str(CACHE_DIR),
+                        help="OpenVINO 模型缓存目录 (默认: 仓库 model_cache)")
 
     # VAD options
     parser.add_argument("--vad", action="store_true", dest="vad", default=True,

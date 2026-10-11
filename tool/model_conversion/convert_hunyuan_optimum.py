@@ -8,9 +8,14 @@ then calls optimum-intel's official `main_export()` path.
 
 import argparse
 import shutil
+import sys
 from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT_DIR))
+
 import torch
+from lib.paths import ROOT_DIR, SOURCE_MODEL_ROOT
 
 
 def register_hunyuan_openvino_config():
@@ -87,12 +92,13 @@ def main():
     parser.add_argument(
         "--model-dir",
         type=Path,
-        default=Path(r"D:\Projects\whisper_cpp_win\Hy-MT2-1.8B"),
+        default=SOURCE_MODEL_ROOT / "Hy-MT2-1.8B",
+        help="Original PyTorch model directory (default: sibling Hy-MT2-1.8B)",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path(r"D:\Projects\whisper_cpp_win\Hy-MT2-1.8B-ov-optimum"),
+        default=ROOT_DIR / "models" / "Hy-MT2-1.8B-ov-optimum",
     )
     parser.add_argument(
         "--task",

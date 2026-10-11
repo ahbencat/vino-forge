@@ -6,7 +6,7 @@
 
 - **Homepage**: <https://modelscope.cn/models/ahbencat/Hy-MT2-7B-ov-int4>
 - **Model creator**: [Tencent](https://huggingface.co/tencent) — original model [tencent/Hy-MT2-7B](https://huggingface.co/tencent/Hy-MT2-7B)
-- **Converter**: exported with [optimum-intel](https://huggingface.co/docs/optimum/intel/index) + NNCF by the scripts in [`tools/model_conversion/`](../../tools/model_conversion/README.md)
+- **Converter**: exported with [optimum-intel](https://huggingface.co/docs/optimum/intel/index) + NNCF by the scripts in [`tool/model_conversion/`](../../tool/model_conversion/README.md)
 
 ## Quantization
 
@@ -56,7 +56,7 @@ print(tokenizer.decode(outputs[0][inputs.shape[-1]:], skip_special_tokens=True))
 
 Recommended sampling parameters (already in `generation_config.json`): temperature 0.7, top_p 0.8, top_k 20, repetition_penalty 1.05.
 
-Command-line translation check: see [`tools/model_conversion/infer_hunyuan_openvino.py`](../../tools/model_conversion/README.md#inference-testing).
+Command-line translation check: see [`tool/model_conversion/infer_hunyuan_openvino.py`](../../tool/model_conversion/README.md#inference-testing).
 
 ## Performance
 

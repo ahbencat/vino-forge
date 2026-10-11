@@ -33,11 +33,13 @@ Whisper's own `translate` task only ever emits English. For any other target lan
 
 | Path | Role |
 |------|------|
-| `generate_and_translate.py` | One-shot driver: video/audio → source SRT → translated SRT |
-| `batch_generate.py` | Batch driver: scan a folder and process every video in it |
-| `video_to_subtitle.py` | Video/audio → SRT (Whisper Large-v3 + Silero VAD) |
-| `translate_srt.py` | SRT → translated SRT (Hy-MT2), timeline preserved |
-| `tools/model_conversion/` | Hunyuan → OpenVINO export (FP16 / INT4) + inference checks |
+| `script/generate_and_translate.py` | One-shot driver: video/audio → source SRT → translated SRT |
+| `script/batch_generate.py` | Batch CLI: scan a folder and process each video |
+| `script/video_to_subtitle.py`, `script/translate_srt.py` | CLI entry points for transcription and translation |
+| `script/whisper_timestamp_srt.py` | Optional standalone CLI for Whisper internal timestamps |
+| `gui/gui_app.py` | Optional PySide6 GUI for single-file and in-process batch processing |
+| `lib/` | Reusable ASR, translation, and repository-path modules |
+| `tool/model_conversion/` | Hunyuan → OpenVINO export (FP16 / INT4) + inference checks |
 | `models/` | Model cards; download the weights into these folders |
 
 ## Requirements
@@ -78,7 +80,7 @@ hf download OpenVINO/whisper-large-v3-fp16-ov --local-dir models/whisper-large-v
 modelscope download --model ahbencat/Hy-MT2-7B-ov-int4 --local_dir models/Hy-MT2-7B-ov-int4
 ```
 
-Or convert it yourself (1.8B FP16, or tweaked INT4 settings) — see [`tools/model_conversion/README.md`](tools/model_conversion/README.md).
+Or convert it yourself (1.8B FP16, or tweaked INT4 settings) — see [`tool/model_conversion/README.md`](tool/model_conversion/README.md).
 
 Any other location works too; point the scripts at it with `--model-dir`.
 
@@ -86,38 +88,47 @@ Any other location works too; point the scripts at it with `--model-dir`.
 
 ```bash
 # One file: transcribe + translate (defaults: target language 中文)
-python generate_and_translate.py "input.mkv"
+python script/generate_and_translate.py "input.mkv"
 
 # Known source language, English output
-python generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang English
+python script/generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang English
 
 # Transcription only, no translation
-python generate_and_translate.py "input.mkv" --tgt-lang None
+python script/generate_and_translate.py "input.mkv" --tgt-lang None
 ```
 
 ### 3. Or batch-process a folder
 
 ```bash
 # Every video under ./videos (recursive, skips ones with an existing .srt)
-python batch_generate.py "./videos"
+python script/batch_generate.py "./videos"
 
 # Preview what would run
-python batch_generate.py "./videos" --dry-run
+python script/batch_generate.py "./videos" --dry-run
 
 # Custom languages / devices
-python batch_generate.py "./videos" --src-lang ja --tgt-lang English --asr-device GPU.1 --trans-device GPU
+python script/batch_generate.py "./videos" --src-lang ja --tgt-lang English --asr-device GPU.1 --trans-device GPU
 ```
 
-### Stage by stage
+### 4. GUI
 
-The drivers above call the two stages via subprocess; you can also run them directly:
+Install the optional GUI dependency and launch:
 
 ```bash
-python video_to_subtitle.py "input.mkv" --task transcribe --language zh   # video → SRT
-python translate_srt.py input.srt --tgt-lang 中文                          # SRT → translated SRT
+pip install PySide6
+python gui/gui_app.py
 ```
 
-See each script's `--help` for the full option list.
+Choose a media file or folder in the top row. Folder input runs the in-GUI batch pipeline, reusing the Whisper and Hy-MT2 models across files. Batch options include recursive scanning, skipping existing SRTs, and skipping folders marked `-C` / `-CH`. Stop cancels after the current model segment/translation block completes.
+
+### Individual stages
+
+```bash
+python script/video_to_subtitle.py "input.mkv" --task transcribe --language zh
+python script/translate_srt.py input.srt --tgt-lang 中文
+```
+
+Reusable implementations live in `lib/`; the corresponding CLI entry points are in `script/`.
 
 ## Performance
 
@@ -152,7 +163,7 @@ A 2.5-hour movie completes in roughly 4.4 minutes and yields 333 subtitle entrie
 
 | Document | Contents |
 |----------|----------|
-| [`tools/model_conversion/README.md`](tools/model_conversion/README.md) | Hunyuan → OpenVINO conversion and inference guide |
+| [`tool/model_conversion/README.md`](tool/model_conversion/README.md) | Hunyuan → OpenVINO conversion and inference guide |
 | [`models/SILERO_VAD/README.md`](models/SILERO_VAD/README.md) | Silero VAD model card and recovery steps |
 | [`models/whisper-large-v3-fp16-ov/README.md`](models/whisper-large-v3-fp16-ov/README.md) | Whisper model card |
 | [`models/Hy-MT2-7B-ov-int4/README.md`](models/Hy-MT2-7B-ov-int4/README.md) | Hy-MT2 INT4 model card |

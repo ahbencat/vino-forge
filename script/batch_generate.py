@@ -3,9 +3,9 @@
 Batch video subtitle generation + translation.
 
 Usage:
-  python batch_generate.py "./videos"
-  python batch_generate.py "./videos" --src-lang ja --tgt-lang English
-  python batch_generate.py --dry-run    # only list files, do not process
+  python script/batch_generate.py "./videos"
+  python script/batch_generate.py "./videos" --src-lang ja --tgt-lang English
+  python script/batch_generate.py --dry-run    # only list files, do not process
 """
 
 import argparse
@@ -14,8 +14,11 @@ import sys
 import time
 from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = ROOT_DIR / "script"
+sys.path.insert(0, str(ROOT_DIR))
 
-SCRIPT_DIR = Path(__file__).parent
+from lib.paths import ROOT_DIR
 
 # Default video directory: current directory
 DEFAULT_VIDEO_DIR = Path(".")
@@ -29,8 +32,8 @@ VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".wmv", ".flv", ".webm", ".m4v"}
 
 def find_python() -> str:
     """Locate Python interpreter: --python arg > local venv > current interpreter."""
-    for candidate in (SCRIPT_DIR / ".venv" / "Scripts" / "python.exe",
-                      SCRIPT_DIR / ".venv" / "bin" / "python"):
+    for candidate in (ROOT_DIR / ".venv" / "Scripts" / "python.exe",
+                      ROOT_DIR / ".venv" / "bin" / "python"):
         if candidate.exists():
             return str(candidate)
 
@@ -78,7 +81,7 @@ def run_one(python: str, video: Path, extra_args: list[str]) -> bool:
 
     start = time.time()
     try:
-        result = subprocess.run(cmd, cwd=str(SCRIPT_DIR))
+        result = subprocess.run(cmd, cwd=ROOT_DIR)
     except KeyboardInterrupt:
         print("\n[INTERRUPT] User aborted.")
         return False
@@ -99,12 +102,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python batch_generate.py
-  python batch_generate.py "./videos"
-  python batch_generate.py --src-lang ja --tgt-lang 中文
-  python batch_generate.py --dry-run
-  python batch_generate.py --no-recursive
-  python batch_generate.py --skip-existing   # skip if .srt already exists
+  python script/batch_generate.py
+  python script/batch_generate.py "./videos"
+  python script/batch_generate.py --src-lang ja --tgt-lang 中文
+  python script/batch_generate.py --dry-run
+  python script/batch_generate.py --no-recursive
+  python script/batch_generate.py --skip-existing   # skip if .srt already exists
         """,
     )
 
@@ -189,7 +192,7 @@ Examples:
 
     args = parser.parse_args()
 
-    video_dir = Path(args.video_dir)
+    video_dir = Path(args.video_dir).expanduser().resolve()
     python = args.python or find_python()
 
     print("=" * 70)

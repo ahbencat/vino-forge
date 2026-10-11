@@ -6,11 +6,10 @@ Reads an existing SRT file, translates subtitle text one by one or in
 merged blocks, and keeps the original timeline untouched.
 
 Usage:
-  python translate_srt.py input.srt
-  python translate_srt.py input.srt --tgt-lang 中文
-  python translate_srt.py input.srt --model-dir models/Hy-MT2-7B-ov-int4 --device GPU
-  python translate_srt.py input.srt --context 2
-  python translate_srt.py input.srt -o output_translated.srt
+  python script/translate_srt.py input.srt
+  python script/translate_srt.py input.srt --tgt-lang 中文
+  python script/translate_srt.py input.srt --model-dir models/Hy-MT2-7B-ov-int4 --device GPU
+  python script/translate_srt.py input.srt -o output_translated.srt
 """
 
 import argparse
@@ -19,11 +18,11 @@ import time
 from pathlib import Path
 
 from optimum.intel import OVModelForCausalLM
+from lib.paths import TRANSLATION_MODEL_DIR
 from transformers import AutoTokenizer, logging as transformers_logging
 
 
-SCRIPT_DIR = Path(__file__).parent
-DEFAULT_TRANS_MODEL_DIR = SCRIPT_DIR / "models" / "Hy-MT2-7B-ov-int4"
+DEFAULT_TRANS_MODEL_DIR = TRANSLATION_MODEL_DIR
 
 
 # ========== SRT parsing / writing ==========
@@ -215,6 +214,7 @@ def translate_segments(
     segments: list[dict],
     target_lang: str,
     merge_chars: int,
+    check_cancel=None,
 ) -> list[dict]:
     for seg in segments:
         seg["translated"] = ""
@@ -226,6 +226,8 @@ def translate_segments(
     print()
 
     for bi, block in enumerate(blocks, 1):
+        if check_cancel is not None:
+            check_cancel()
         # Build tagged text: <seg1>text</seg1> <seg2>text</seg2> ...
         tagged_lines = []
         for i, seg in enumerate(block):
@@ -273,16 +275,13 @@ def main():
         epilog="""
 示例:
   # 默认翻译为英文
-  python translate_srt.py input.srt
+  python script/translate_srt.py input.srt
 
   # 翻译为中文
-  python translate_srt.py input.srt --tgt-lang 中文
-
-  # 使用 INT4 7B 模型 + GPU
-  python translate_srt.py input.srt --model-dir models/Hy-MT2-7B-ov-int4 --device GPU
+  python script/translate_srt.py input.srt --tgt-lang 中文
 
   # 指定输出路径
-  python translate_srt.py input.srt -o output.srt
+  python script/translate_srt.py input.srt -o output.srt
         """,
     )
 
