@@ -4,8 +4,10 @@
 import sys
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT_DIR))
+APP_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = APP_ROOT.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "libs"))
+sys.path.insert(0, str(APP_ROOT))
 
 from lib.translate import main
 

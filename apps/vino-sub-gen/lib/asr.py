@@ -21,7 +21,7 @@ import numpy as np
 import torch
 import soundfile as sf
 import transformers
-from lib.paths import ASR_MODEL_DIR, CACHE_DIR, FFMPEG_PATH, VAD_MODEL_PATH
+from ov_kit.paths import ASR_MODEL_DIR, CACHE_DIR, FFMPEG_PATH, VAD_MODEL_PATH
 
 transformers.logging.set_verbosity_error()
 

@@ -26,7 +26,7 @@ import tempfile
 import time
 from pathlib import Path
 
-from lib.paths import ASR_MODEL_DIR, CACHE_DIR, FFMPEG_PATH, VAD_MODEL_PATH
+from ov_kit.paths import ASR_MODEL_DIR, CACHE_DIR, FFMPEG_PATH, VAD_MODEL_PATH
 
 import numpy as np
 import soundfile as sf

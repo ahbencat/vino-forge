@@ -29,11 +29,14 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QFont, QTextCursor
 
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT_DIR))
+ROOT_DIR = Path(__file__).resolve().parents[3]
+APP_ROOT = ROOT_DIR / "apps" / "vino-sub-gen"
+sys.path.insert(0, str(ROOT_DIR / "libs"))
+sys.path.insert(0, str(APP_ROOT))
 
 from lib.asr import VideoSubtitleGenerator, extract_audio, write_srt
-from lib.paths import CACHE_DIR
+from ov_kit.devices import populate_device_combo
+from ov_kit.paths import CACHE_DIR
 from lib.translate import Translator, parse_srt, translate_segments, write_srt as write_translated_srt
 
 
@@ -789,25 +792,7 @@ class MainWindow(QMainWindow):
         # 设备选择
         self.device_combo = QComboBox()
         self.device_combo.setMinimumWidth(260)
-        # 动态获取 OpenVINO 设备列表（设备 id 存入 itemData，与 translate_device_combo 相同）
-        try:
-            from openvino import Core
-            ov_core = Core()
-            for dev in ov_core.get_available_devices():
-                try:
-                    full_name = ov_core.get_property(dev, "FULL_DEVICE_NAME")
-                    display = f"{dev} - {full_name}"
-                except:
-                    display = dev
-                self.device_combo.addItem(display, dev)
-        except Exception:
-            # 回退到硬编码列表
-            for d in ["CPU", "GPU.0", "GPU.1", "NPU"]:
-                self.device_combo.addItem(d, d)
-        # 设置默认选中项
-        default_idx = self.device_combo.findData(self.settings.value("device", "GPU.1"))
-        if default_idx >= 0:
-            self.device_combo.setCurrentIndex(default_idx)
+        populate_device_combo(self.device_combo, self.settings.value("device", "GPU.1"))
         left_layout.addRow("推理设备:", self.device_combo)
 
         # 缓存目录
@@ -946,22 +931,7 @@ class MainWindow(QMainWindow):
         # 翻译设备
         self.translate_device_combo = QComboBox()
         self.translate_device_combo.setMinimumWidth(260)
-        try:
-            from openvino import Core as _Core
-            _ovc = _Core()
-            for dev in _ovc.get_available_devices():
-                try:
-                    fn = _ovc.get_property(dev, "FULL_DEVICE_NAME")
-                    self.translate_device_combo.addItem(f"{dev} - {fn}", dev)
-                except:
-                    self.translate_device_combo.addItem(dev, dev)
-        except:
-            for d in ["CPU", "GPU.0", "GPU.1", "NPU"]:
-                self.translate_device_combo.addItem(d, d)
-        saved_tdev = self.settings.value("translate_device", "GPU")
-        idx = self.translate_device_combo.findData(saved_tdev)
-        if idx >= 0:
-            self.translate_device_combo.setCurrentIndex(idx)
+        populate_device_combo(self.translate_device_combo, self.settings.value("translate_device", "GPU"))
         translate_layout.addRow("翻译设备:", self.translate_device_combo)
 
         # 目标语言

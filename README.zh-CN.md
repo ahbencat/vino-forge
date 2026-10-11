@@ -1,12 +1,16 @@
-# OpenVINO 视频字幕生成工具
+# VinoForge — OpenVINO 应用系列
 
 [English](README.md) | **简体中文**
 
-基于 OpenVINO 的端到端视频字幕生成与翻译工具，面向 Intel 平台。
+基于 OpenVINO 的 Intel 加速应用系列 monorepo。
 
-- **转录** —— Whisper Large-v3 FP16 将视频/音频转为 SRT，配合 Silero VAD 按自然停顿分段，而非固定切片
-- **翻译** —— Hy-MT2 / Hunyuan Dense V1 将 SRT 翻译为任意目标语言，时间轴原样保留
-- **转换** —— 自行将 Hunyuan 模型导出为 OpenVINO FP16 或 INT4
+**当前应用：**
+
+| 应用 | 说明 |
+|------|------|
+| [vino-sub-gen](apps/vino-sub-gen/) | 视频/音频字幕生成与翻译（Whisper + Hy-MT2） |
+
+各应用位于 `apps/` 下，共享 `libs/ov_kit/` 中的公共基础设施。
 
 开发与实测环境：Intel Core Ultra 7 265K + Arc B580。
 
@@ -29,17 +33,31 @@ translated.srt
 
 Whisper 自带的 `translate` 任务只能输出英文。目标语言只要不是英文，就必须先转录、再翻译 —— 这正是两阶段流水线存在的原因。
 
-## 组成部分
+## 仓库结构
+
+```
+vino-forge/                     ← monorepo 根
+  libs/ov_kit/                  ← 共享：路径、设备枚举
+  apps/vino-sub-gen/            ← 视频字幕生成与翻译
+    lib/                        ← ASR、翻译、时间戳模块
+    script/                     ← 命令行入口、批量驱动
+    gui/                        ← PySide6 图形界面
+    tool/model_conversion/      ← Hunyuan → OpenVINO 导出工具
+    models/                     ← 模型卡（权重不入库）
+  models/                       ← 共享模型权重（不入库）
+```
+
+## 组成部分（vino-sub-gen）
 
 | 路径 | 作用 |
 |------|------|
-| `script/generate_and_translate.py` | 一键入口：视频/音频 → 原语言 SRT → 翻译后 SRT |
-| `script/batch_generate.py` | 批量命令行入口：扫描目录并逐个处理视频 |
-| `script/video_to_subtitle.py`、`script/translate_srt.py` | 转录和翻译的命令行入口 |
-| `script/whisper_timestamp_srt.py` | Whisper 内部时间戳的独立 CLI |
-| `gui/gui_app.py` | 可选 PySide6 图形界面：单文件或进程内批处理 |
-| `lib/` | 可复用的 ASR、翻译与仓库路径模块 |
-| `tool/model_conversion/` | Hunyuan → OpenVINO 导出（FP16 / INT4）+ 推理验证 |
+| `apps/vino-sub-gen/script/generate_and_translate.py` | 一键入口：视频/音频 → 原语言 SRT → 翻译后 SRT |
+| `apps/vino-sub-gen/script/batch_generate.py` | 批量命令行入口：扫描目录并逐个处理视频 |
+| `apps/vino-sub-gen/script/video_to_subtitle.py`、`apps/vino-sub-gen/script/translate_srt.py` | 转录和翻译的命令行入口 |
+| `apps/vino-sub-gen/script/whisper_timestamp_srt.py` | Whisper 内部时间戳的独立 CLI |
+| `apps/vino-sub-gen/gui/gui_app.py` | 可选 PySide6 图形界面：单文件或进程内批处理 |
+| `apps/vino-sub-gen/lib/` | 可复用的 ASR、翻译与时间戳模块 |
+| `apps/vino-sub-gen/tool/model_conversion/` | Hunyuan → OpenVINO 导出（FP16 / INT4）+ 推理验证 |
 | `models/` | 模型卡；权重下载到对应文件夹 |
 
 ## 环境要求
@@ -88,26 +106,26 @@ modelscope download --model ahbencat/Hy-MT2-7B-ov-int4 --local_dir models/Hy-MT2
 
 ```bash
 # 单个文件：转录 + 翻译（默认目标语言为中文）
-python script/generate_and_translate.py "input.mkv"
+python apps/vino-sub-gen/script/generate_and_translate.py "input.mkv"
 
 # 指定源语言，输出英文
-python script/generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang English
+python apps/vino-sub-gen/script/generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang English
 
 # 只转录，不翻译
-python script/generate_and_translate.py "input.mkv" --tgt-lang None
+python apps/vino-sub-gen/script/generate_and_translate.py "input.mkv" --tgt-lang None
 ```
 
 ### 3. 或批量处理文件夹
 
 ```bash
 # ./videos 下所有视频（递归扫描，已有 .srt 的自动跳过）
-python script/batch_generate.py "./videos"
+python apps/vino-sub-gen/script/batch_generate.py "./videos"
 
 # 预览将要处理的文件
-python script/batch_generate.py "./videos" --dry-run
+python apps/vino-sub-gen/script/batch_generate.py "./videos" --dry-run
 
 # 自定义语言 / 设备
-python script/batch_generate.py "./videos" --src-lang ja --tgt-lang English --asr-device GPU.1 --trans-device GPU
+python apps/vino-sub-gen/script/batch_generate.py "./videos" --src-lang ja --tgt-lang English --asr-device GPU.1 --trans-device GPU
 ```
 
 ### 4. 图形界面
@@ -116,7 +134,7 @@ python script/batch_generate.py "./videos" --src-lang ja --tgt-lang English --as
 
 ```bash
 pip install PySide6
-python gui/gui_app.py
+python apps/vino-sub-gen/gui/gui_app.py
 ```
 
 顶部可选单个媒体文件或文件夹；选文件夹时会在 GUI 内批量转录和翻译，Whisper 与 Hy-MT2 模型在整个批次中复用。批量选项支持递归子目录、跳过已有 SRT、跳过名称带 `-C` / `-CH` 标记的目录。停止会在当前模型推理段/翻译块完成后中止。
@@ -124,11 +142,11 @@ python gui/gui_app.py
 ### 单独执行各阶段
 
 ```bash
-python script/video_to_subtitle.py "input.mkv" --task transcribe --language zh
-python script/translate_srt.py input.srt --tgt-lang 中文
+python apps/vino-sub-gen/script/video_to_subtitle.py "input.mkv" --task transcribe --language zh
+python apps/vino-sub-gen/script/translate_srt.py input.srt --tgt-lang 中文
 ```
 
-可复用实现位于 `lib/`，对应的命令行入口位于 `script/`。
+可复用实现位于 `apps/vino-sub-gen/lib/`，对应的命令行入口位于 `apps/vino-sub-gen/script/`。
 
 ## 性能实测
 
@@ -163,7 +181,7 @@ python script/translate_srt.py input.srt --tgt-lang 中文
 
 | 文档 | 内容 |
 |------|------|
-| [`tool/model_conversion/README.zh-CN.md`](tool/model_conversion/README.zh-CN.md) | Hunyuan → OpenVINO 转换与推理指南 |
+| [`apps/vino-sub-gen/tool/model_conversion/README.zh-CN.md`](apps/vino-sub-gen/tool/model_conversion/README.zh-CN.md) | Hunyuan → OpenVINO 转换与推理指南 |
 | [`models/SILERO_VAD/README.zh-CN.md`](models/SILERO_VAD/README.zh-CN.md) | Silero VAD 模型卡与缺失恢复 |
 | [`models/whisper-large-v3-fp16-ov/README.md`](models/whisper-large-v3-fp16-ov/README.md) | Whisper 模型卡 |
 | [`models/Hy-MT2-7B-ov-int4/README.zh-CN.md`](models/Hy-MT2-7B-ov-int4/README.zh-CN.md) | Hy-MT2 INT4 模型卡 |

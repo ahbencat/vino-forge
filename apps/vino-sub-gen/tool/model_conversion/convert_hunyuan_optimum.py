@@ -11,11 +11,12 @@ import shutil
 import sys
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT_DIR))
+APP_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = APP_ROOT.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "libs"))
 
 import torch
-from lib.paths import ROOT_DIR, SOURCE_MODEL_ROOT
+from ov_kit.paths import ROOT_DIR, SOURCE_MODEL_ROOT
 
 
 def register_hunyuan_openvino_config():

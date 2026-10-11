@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
+ROOT_DIR = Path(__file__).resolve().parents[2]
 MODEL_DIR = ROOT_DIR / "models"
 ASR_MODEL_DIR = MODEL_DIR / "whisper-large-v3-fp16-ov"
 TRANSLATION_MODEL_DIR = MODEL_DIR / "Hy-MT2-7B-ov-int4"

@@ -18,7 +18,7 @@ import time
 from pathlib import Path
 
 from optimum.intel import OVModelForCausalLM
-from lib.paths import TRANSLATION_MODEL_DIR
+from ov_kit.paths import TRANSLATION_MODEL_DIR
 from transformers import AutoTokenizer, logging as transformers_logging
 
 

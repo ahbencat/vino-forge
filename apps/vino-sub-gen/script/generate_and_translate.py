@@ -21,10 +21,12 @@ import tempfile
 import time
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT_DIR))
+APP_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = APP_ROOT.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "libs"))
+sys.path.insert(0, str(APP_ROOT))
 
-from lib.paths import ASR_MODEL_DIR, TRANSLATION_MODEL_DIR
+from ov_kit.paths import ASR_MODEL_DIR, TRANSLATION_MODEL_DIR
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_ASR_MODEL_DIR = ASR_MODEL_DIR

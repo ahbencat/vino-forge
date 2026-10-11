@@ -12,10 +12,11 @@ import time
 import sys
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT_DIR))
+APP_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = APP_ROOT.parent.parent
+sys.path.insert(0, str(REPO_ROOT / "libs"))
 
-from lib.paths import ROOT_DIR, TIMESTAMP_MODEL_DIR
+from ov_kit.paths import ROOT_DIR, TIMESTAMP_MODEL_DIR
 
 from optimum.intel import OVModelForCausalLM
 from transformers import AutoTokenizer, logging

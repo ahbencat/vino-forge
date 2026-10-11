@@ -1,12 +1,16 @@
-# OpenVINO Video Subtitle Generator
+# VinoForge — OpenVINO App Series
 
 **English** | [简体中文](README.zh-CN.md)
 
-End-to-end video subtitle generation and translation on Intel hardware, built on OpenVINO.
+A monorepo for a series of OpenVINO-accelerated applications on Intel hardware.
 
-- **Transcribe** — Whisper Large-v3 FP16 turns video/audio into SRT, with Silero VAD cutting segments on natural pauses instead of a fixed clock
-- **Translate** — Hy-MT2 / Hunyuan Dense V1 translates the SRT into any target language, timeline preserved verbatim
-- **Convert** — export Hunyuan models to OpenVINO FP16 or INT4 yourself
+**Current apps:**
+
+| App | Description |
+|-----|-------------|
+| [vino-sub-gen](apps/vino-sub-gen/) | Video/audio subtitle generation & translation (Whisper + Hy-MT2) |
+
+Each app lives under `apps/` and shares common infrastructure from `libs/ov_kit/`.
 
 Developed and measured on an Intel Core Ultra 7 265K + Arc B580.
 
@@ -29,17 +33,31 @@ translated.srt
 
 Whisper's own `translate` task only ever emits English. For any other target language you must transcribe first and then translate — that is the reason for the two stages.
 
-## Components
+## Repository layout
+
+```
+vino-forge/                     ← monorepo root
+  libs/ov_kit/                  ← shared: paths, device enumeration
+  apps/vino-sub-gen/            ← video subtitle generation & translation
+    lib/                        ← ASR, translation, timestamp modules
+    script/                     ← CLI entry points, batch driver
+    gui/                        ← PySide6 GUI
+    tool/model_conversion/      ← Hunyuan → OpenVINO export tools
+    models/                     ← model cards (weights not committed)
+  models/                       ← shared model weights (not committed)
+```
+
+## Components (vino-sub-gen)
 
 | Path | Role |
 |------|------|
-| `script/generate_and_translate.py` | One-shot driver: video/audio → source SRT → translated SRT |
-| `script/batch_generate.py` | Batch CLI: scan a folder and process each video |
-| `script/video_to_subtitle.py`, `script/translate_srt.py` | CLI entry points for transcription and translation |
-| `script/whisper_timestamp_srt.py` | Optional standalone CLI for Whisper internal timestamps |
-| `gui/gui_app.py` | Optional PySide6 GUI for single-file and in-process batch processing |
-| `lib/` | Reusable ASR, translation, and repository-path modules |
-| `tool/model_conversion/` | Hunyuan → OpenVINO export (FP16 / INT4) + inference checks |
+| `apps/vino-sub-gen/script/generate_and_translate.py` | One-shot driver: video/audio → source SRT → translated SRT |
+| `apps/vino-sub-gen/script/batch_generate.py` | Batch CLI: scan a folder and process each video |
+| `apps/vino-sub-gen/script/video_to_subtitle.py`, `apps/vino-sub-gen/script/translate_srt.py` | CLI entry points for transcription and translation |
+| `apps/vino-sub-gen/script/whisper_timestamp_srt.py` | Optional standalone CLI for Whisper internal timestamps |
+| `apps/vino-sub-gen/gui/gui_app.py` | Optional PySide6 GUI for single-file and in-process batch processing |
+| `apps/vino-sub-gen/lib/` | Reusable ASR, translation, and timestamp modules |
+| `apps/vino-sub-gen/tool/model_conversion/` | Hunyuan → OpenVINO export (FP16 / INT4) + inference checks |
 | `models/` | Model cards; download the weights into these folders |
 
 ## Requirements
@@ -88,26 +106,26 @@ Any other location works too; point the scripts at it with `--model-dir`.
 
 ```bash
 # One file: transcribe + translate (defaults: target language 中文)
-python script/generate_and_translate.py "input.mkv"
+python apps/vino-sub-gen/script/generate_and_translate.py "input.mkv"
 
 # Known source language, English output
-python script/generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang English
+python apps/vino-sub-gen/script/generate_and_translate.py "input.mkv" --src-lang ja --tgt-lang English
 
 # Transcription only, no translation
-python script/generate_and_translate.py "input.mkv" --tgt-lang None
+python apps/vino-sub-gen/script/generate_and_translate.py "input.mkv" --tgt-lang None
 ```
 
 ### 3. Or batch-process a folder
 
 ```bash
 # Every video under ./videos (recursive, skips ones with an existing .srt)
-python script/batch_generate.py "./videos"
+python apps/vino-sub-gen/script/batch_generate.py "./videos"
 
 # Preview what would run
-python script/batch_generate.py "./videos" --dry-run
+python apps/vino-sub-gen/script/batch_generate.py "./videos" --dry-run
 
 # Custom languages / devices
-python script/batch_generate.py "./videos" --src-lang ja --tgt-lang English --asr-device GPU.1 --trans-device GPU
+python apps/vino-sub-gen/script/batch_generate.py "./videos" --src-lang ja --tgt-lang English --asr-device GPU.1 --trans-device GPU
 ```
 
 ### 4. GUI
@@ -116,7 +134,7 @@ Install the optional GUI dependency and launch:
 
 ```bash
 pip install PySide6
-python gui/gui_app.py
+python apps/vino-sub-gen/gui/gui_app.py
 ```
 
 Choose a media file or folder in the top row. Folder input runs the in-GUI batch pipeline, reusing the Whisper and Hy-MT2 models across files. Batch options include recursive scanning, skipping existing SRTs, and skipping folders marked `-C` / `-CH`. Stop cancels after the current model segment/translation block completes.
@@ -124,11 +142,11 @@ Choose a media file or folder in the top row. Folder input runs the in-GUI batch
 ### Individual stages
 
 ```bash
-python script/video_to_subtitle.py "input.mkv" --task transcribe --language zh
-python script/translate_srt.py input.srt --tgt-lang 中文
+python apps/vino-sub-gen/script/video_to_subtitle.py "input.mkv" --task transcribe --language zh
+python apps/vino-sub-gen/script/translate_srt.py input.srt --tgt-lang 中文
 ```
 
-Reusable implementations live in `lib/`; the corresponding CLI entry points are in `script/`.
+Reusable implementations live in `apps/vino-sub-gen/lib/`; the corresponding CLI entry points are in `apps/vino-sub-gen/script/`.
 
 ## Performance
 
@@ -163,7 +181,7 @@ A 2.5-hour movie completes in roughly 4.4 minutes and yields 333 subtitle entrie
 
 | Document | Contents |
 |----------|----------|
-| [`tool/model_conversion/README.md`](tool/model_conversion/README.md) | Hunyuan → OpenVINO conversion and inference guide |
+| [`apps/vino-sub-gen/tool/model_conversion/README.md`](apps/vino-sub-gen/tool/model_conversion/README.md) | Hunyuan → OpenVINO conversion and inference guide |
 | [`models/SILERO_VAD/README.md`](models/SILERO_VAD/README.md) | Silero VAD model card and recovery steps |
 | [`models/whisper-large-v3-fp16-ov/README.md`](models/whisper-large-v3-fp16-ov/README.md) | Whisper model card |
 | [`models/Hy-MT2-7B-ov-int4/README.md`](models/Hy-MT2-7B-ov-int4/README.md) | Hy-MT2 INT4 model card |

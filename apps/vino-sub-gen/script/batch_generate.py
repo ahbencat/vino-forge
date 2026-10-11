@@ -14,11 +14,13 @@ import sys
 import time
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
-SCRIPT_DIR = ROOT_DIR / "script"
-sys.path.insert(0, str(ROOT_DIR))
+APP_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = APP_ROOT.parent.parent
+SCRIPT_DIR = APP_ROOT / "script"
+sys.path.insert(0, str(REPO_ROOT / "libs"))
+sys.path.insert(0, str(APP_ROOT))
 
-from lib.paths import ROOT_DIR
+from ov_kit.paths import ROOT_DIR
 
 # Default video directory: current directory
 DEFAULT_VIDEO_DIR = Path(".")
