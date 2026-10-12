@@ -38,6 +38,7 @@ from lib.asr import VideoSubtitleGenerator, extract_audio, write_srt
 from ov_kit.devices import populate_device_combo
 from ov_kit.paths import CACHE_DIR
 from lib.translate import Translator, parse_srt, translate_segments, write_srt as write_translated_srt
+from gui.i18n import T, get_default_lang, set_lang
 
 
 def _default_model_dir(name):
@@ -218,7 +219,7 @@ class VadSettingsDialog(QDialog):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self.setWindowTitle("VAD 设置")
+        self.setWindowTitle(T("vad_title"))
         self.setMinimumWidth(380)
 
         layout = QFormLayout(self)
@@ -228,21 +229,21 @@ class VadSettingsDialog(QDialog):
         self.threshold_spin.setRange(0.1, 1.0)
         self.threshold_spin.setSingleStep(0.05)
         self.threshold_spin.setValue(float(settings.value("vad_threshold", 0.5)))
-        layout.addRow("判定阈值:", self.threshold_spin)
+        layout.addRow(T("vad_threshold"), self.threshold_spin)
 
         self.merge_spin = QSpinBox()
         self.merge_spin.setRange(0, 2000)
         self.merge_spin.setSuffix(" ms")
         self.merge_spin.setValue(int(settings.value("vad_merge_gap", 500)))
-        layout.addRow("合并间隙:", self.merge_spin)
+        layout.addRow(T("vad_merge_gap"), self.merge_spin)
 
         self.padding_spin = QSpinBox()
         self.padding_spin.setRange(0, 1000)
         self.padding_spin.setSuffix(" ms")
         self.padding_spin.setValue(int(settings.value("vad_padding", 300)))
-        layout.addRow("段前后填充:", self.padding_spin)
+        layout.addRow(T("vad_padding"), self.padding_spin)
 
-        self.whisper_ts_check = QCheckBox("使用 Whisper 内部时间戳")
+        self.whisper_ts_check = QCheckBox(T("vad_use_whisper_ts"))
         self.whisper_ts_check.setChecked(
             settings.value("whisper_timestamps", False, type=bool)
         )
@@ -267,7 +268,7 @@ class BeamSettingsDialog(QDialog):
     def __init__(self, settings, parent=None):
         super().__init__(parent)
         self.settings = settings
-        self.setWindowTitle("Beam Search 设置")
+        self.setWindowTitle(T("beam_title"))
         self.setMinimumWidth(350)
 
         layout = QFormLayout(self)
@@ -276,9 +277,9 @@ class BeamSettingsDialog(QDialog):
         self.num_beams_spin = QSpinBox()
         self.num_beams_spin.setRange(1, 10)
         self.num_beams_spin.setValue(int(settings.value("num_beams", 5)))
-        layout.addRow("Beam 数量:", self.num_beams_spin)
+        layout.addRow(T("beam_count"), self.num_beams_spin)
 
-        hint = QLabel("数量越大越精确，但速度越慢（默认 5）")
+        hint = QLabel(T("beam_hint"))
         hint.setStyleSheet("color: gray; font-size: 11px;")
         layout.addRow("", hint)
 
@@ -377,8 +378,8 @@ class SubtitleWorker(QThread):
         try:
             self._run_pipeline()
         except _Cancelled:
-            self.log_signal.emit("\n[INFO] 已停止")
-            self.finished_signal.emit("cancelled", "已停止")
+            self.log_signal.emit(T("log_stopped"))
+            self.finished_signal.emit("cancelled", T("stopped"))
         except Exception as e:
             self.log_signal.emit(f"[ERROR] {str(e)}")
             self.log_signal.emit(traceback.format_exc())
@@ -437,15 +438,15 @@ class SubtitleWorker(QThread):
         if is_batch:
             items = collect_media(input_path, cfg.get("batch_recursive", True))
             self._log("=" * 60)
-            self._log(f"批量处理: {input_path}")
-            self._log(f"  找到 {len(items)} 个媒体文件")
+            self._log(T("log_batch") + str(input_path))
+            self._log(T("log_found_media", n=len(items)))
         else:
             items = [input_path]
         self._file_total = max(len(items), 1)
 
         if not items:
-            self._log("[提示] 目录下没有可处理的媒体文件")
-            self.finished_signal.emit("success", "没有可处理的媒体文件")
+            self._log(T("log_no_media"))
+            self.finished_signal.emit("success", T("log_no_media_msg"))
             return
 
         skipped = 0
@@ -453,26 +454,26 @@ class SubtitleWorker(QThread):
         for idx, item in enumerate(items):
             self._check_cancel()
             if is_batch and cfg.get("batch_skip_marker") and has_skip_marker(item, input_path):
-                self._log(f"[跳过] 文件夹含 -C/-CH 标记: {item.parent}")
+                self._log(T("log_skip_marker") + str(item.parent))
                 skipped += 1
             elif is_batch and cfg.get("batch_skip_existing") and item.with_suffix(".srt").exists():
-                self._log(f"[跳过] 字幕已存在: {item.with_suffix('.srt').name}")
+                self._log(T("log_skip_existing") + item.with_suffix('.srt').name)
                 skipped += 1
             else:
                 queued.append((idx, item))
 
         if not queued:
-            self._log(f"批量处理完成: 成功 0 | 失败 0 | 跳过 {skipped} | 总计 {len(items)}")
+            self._log(T("log_batch_all_skipped", skipped=skipped, total=len(items)))
             self.progress_signal.emit(100)
-            self.finished_signal.emit("success", f"批量完成: 成功 0 / 失败 0 / 跳过 {skipped} (共 {len(items)})")
+            self.finished_signal.emit("success", T("log_batch_all_skipped_msg", skipped=skipped, total=len(items)))
             return
         self._file_total = len(items)
 
         # ===== 2. 加载模型（批量时全程只加载一次） =====
-        self._stage("加载模型...")
+        self._stage(T("stage_load_model"))
         self._log("=" * 60)
-        self._log("加载模型: " + cfg["model_dir"])
-        self._log("设备: " + cfg["device"])
+        self._log(T("log_load_model") + cfg["model_dir"])
+        self._log(T("log_device") + cfg["device"])
         self._progress(2)
 
         self._check_cancel()
@@ -486,7 +487,7 @@ class SubtitleWorker(QThread):
             chunk_length_s=cfg.get("chunk_length", 30),
             batch_size=cfg.get("batch_size", 1)
         )
-        self._log("模型加载完成")
+        self._log(T("log_model_loaded"))
 
         # ===== 3. 逐文件处理 =====
         success, failed = 0, 0
@@ -508,7 +509,7 @@ class SubtitleWorker(QThread):
             except _Cancelled:
                 raise
             except Exception as e:
-                self._log(f"[失败] {item.name}: {str(e)}")
+                self._log(f"{T('log_failed')}{item.name}: {str(e)}")
                 self._log(traceback.format_exc())
                 fail_names.append(item.name)
                 failed += 1
@@ -521,16 +522,15 @@ class SubtitleWorker(QThread):
         self.progress_signal.emit(100)
         if is_batch:
             self._log("\n" + "=" * 60)
-            self._log("批量处理完成")
-            self._log(f"  总计: {len(items)} | 成功: {success} | 失败: {failed} | 跳过: {skipped}")
-            self._log(f"  总耗时: {elapsed:.1f}s ({elapsed / 60:.1f} min)")
+            self._log(T("log_batch_done"))
+            self._log(T("log_total", total=len(items), ok=success, fail=failed, skipped=skipped))
+            self._log(T("log_elapsed_min", s=elapsed, m=elapsed / 60))
             if fail_names:
-                self._log("  失败文件: " + ", ".join(fail_names))
-            msg = (f"批量完成: 成功 {success} / 失败 {failed} / 跳过 {skipped} (共 {len(items)})\n"
-                   f"总耗时 {elapsed / 60:.1f} 分钟")
+                self._log(T("log_failed_files") + ", ".join(fail_names))
+            msg = T("log_batch_done_msg", ok=success, fail=failed, skipped=skipped, total=len(items), m=elapsed / 60)
             self.finished_signal.emit("success" if failed == 0 else "error", msg)
         else:
-            self._log(f"  总耗时: {elapsed:.1f}s")
+            self._log(T("log_elapsed_s", s=elapsed))
 
     def _process_one(self, input_path: Path, cfg):
         """处理单个文件：提取音频 → 转录 → 生成 SRT → 翻译"""
@@ -540,9 +540,9 @@ class SubtitleWorker(QThread):
         self._check_cancel()
         if is_audio:
             audio_path = str(input_path)
-            self._log(f"输入是音频文件: {input_path.name}")
+            self._log(T("log_audio_input") + input_path.name)
         else:
-            self._stage("提取音频...")
+            self._stage(T("stage_extract_audio"))
             self._log("\n[extract_audio] " + input_path.name)
             self._progress(15)
 
@@ -556,16 +556,16 @@ class SubtitleWorker(QThread):
                 self._temp_audio = audio_path
 
             extract_audio(input_path, audio_path)
-            self._log("  音频提取完成: " + audio_path)
+            self._log(T("log_audio_done") + audio_path)
             self._progress(25)
 
         # ===== 转录 =====
         self._check_cancel()
-        self._stage("转录中...")
+        self._stage(T("stage_transcribe"))
         self._log("\n[transcribe] " + Path(audio_path).name)
-        self._log(f"  任务: {cfg['task']}")
-        self._log(f"  语言: {cfg['language']}")
-        self._log(f"  VAD: {'启用' if cfg.get('use_vad', True) else '禁用'}")
+        self._log(T("log_task") + str(cfg['task']))
+        self._log(T("log_lang") + str(cfg['language']))
+        self._log(T("log_vad_on") if cfg.get('use_vad', True) else T("log_vad_off"))
 
         # 计算 num_beams
         num_beams = cfg.get("num_beams") if cfg.get("beam_search") else None
@@ -574,7 +574,7 @@ class SubtitleWorker(QThread):
 
         if cfg.get("use_vad", True):
             # VAD 模式
-            self._log("  使用 VAD 模式...")
+            self._log(T("log_use_vad"))
             result = self.generator.transcribe_with_vad(
                 audio_path,
                 task=cfg["task"],
@@ -592,7 +592,7 @@ class SubtitleWorker(QThread):
             )
         else:
             # 直接转录
-            self._log("  使用直接转录模式...")
+            self._log(T("log_use_direct"))
             result = self.generator.transcribe(
                 audio_path,
                 task=cfg["task"],
@@ -604,9 +604,9 @@ class SubtitleWorker(QThread):
         self._check_cancel()
         elapsed = time.time() - start_time
         self._progress(90)
-        self._log(f"\n[transcribe_done] 耗时: {elapsed:.1f}s")
-        self._log(f"  文本长度: {len(result['text'])}")
-        self._log(f"  分段数: {len(result.get('chunks', []))}")
+        self._log(T("log_transcribe_done", s=elapsed))
+        self._log(T("log_text_len", n=len(result['text'])))
+        self._log(T("log_chunk_count", n=len(result.get('chunks', []))))
 
         # 发送 chunk 信息
         for i, chunk in enumerate(result.get("chunks", []), 1):
@@ -615,7 +615,7 @@ class SubtitleWorker(QThread):
             self.chunk_signal.emit(i, len(result["chunks"]), text)
 
         # ===== 生成 SRT =====
-        self._stage("生成字幕...")
+        self._stage(T("stage_make_srt"))
         output_path = (
             str(input_path.with_suffix(".srt"))
             if self._is_batch
@@ -630,31 +630,31 @@ class SubtitleWorker(QThread):
                 [{"timestamp": (0, 0), "text": result["text"]}],
                 output_path
             )
-        self._log(f"  SRT 已保存: {srt_path}")
+        self._log(T("log_srt_saved") + str(srt_path))
         self._progress(95)
 
         # ===== 翻译 (Hy-MT2) =====
         translated_path = None
         if cfg.get("enable_translate"):
             self._check_cancel()
-            self._stage("翻译字幕...")
+            self._stage(T("stage_translate"))
             try:
                 translated_path = self._translate_srt(srt_path, cfg)
             except _Cancelled:
                 raise
             except Exception as e:
-                self._log(f"[翻译失败] {str(e)}")
+                self._log(f"{T('log_translate_failed')}{str(e)}")
                 import traceback as _tb
                 self._log(_tb.format_exc())
                 translated_path = None
 
         self._log("=" * 60)
         if translated_path:
-            self._log(f"[完成] 原字幕: {srt_path}")
-            self._log(f"[完成] 翻译字幕: {translated_path}")
+            self._log(T("log_done_src") + str(srt_path))
+            self._log(T("log_done_translated") + str(translated_path))
         else:
-            self._log(f"[完成] SRT 已保存: {srt_path}")
-        self._log(f"  本文件耗时: {elapsed:.1f}s")
+            self._log(T("log_done_srt") + str(srt_path))
+        self._log(T("log_file_elapsed", s=elapsed))
         self._cleanup_temp_audio()
 
         if not self._is_batch:
@@ -667,16 +667,16 @@ class SubtitleWorker(QThread):
         translated_path = srt_path.with_stem(srt_path.stem + "_translated")
 
         self._log(f"\n[translate] {srt_path.name} -> {translated_path.name}")
-        self._log(f"  模型: {cfg['translate_model_dir']}")
-        self._log(f"  设备: {cfg['translate_device']}")
-        self._log(f"  目标语言: {cfg['tgt_lang']}")
+        self._log(T("log_mt_model") + str(cfg['translate_model_dir']))
+        self._log(T("log_mt_device") + str(cfg['translate_device']))
+        self._log(T("log_tgt_lang") + str(cfg['tgt_lang']))
 
         # 解析 SRT
         segments = parse_srt(srt_path)
         if not segments:
-            self._log("  没有可翻译的字幕")
+            self._log(T("log_no_segments"))
             return None
-        self._log(f"  共 {len(segments)} 条字幕")
+        self._log(T("log_segment_count", n=len(segments)))
 
         # 加载翻译模型（批量处理时跨文件复用同一实例）
         key = (str(cfg["translate_model_dir"]), cfg["translate_device"])
@@ -694,11 +694,11 @@ class SubtitleWorker(QThread):
             check_cancel=self._check_cancel,
         )
         translate_time = time.time() - translate_start
-        self._log(f"  翻译耗时: {translate_time:.1f}s")
+        self._log(T("log_translate_elapsed", s=translate_time))
 
         # 写回 SRT
         write_translated_srt(segments, translated_path)
-        self._log(f"  翻译字幕已保存: {translated_path}")
+        self._log(T("log_translated_saved") + str(translated_path))
 
         return str(translated_path)
 
@@ -716,9 +716,15 @@ class MainWindow(QMainWindow):
         if self.settings.value("settings_version", 1, type=int) < self.SETTINGS_VERSION:
             self.settings.clear()
             self.settings.setValue("settings_version", self.SETTINGS_VERSION)
+        # 界面语言必须在建 UI 之前确定
+        set_lang(self.settings.value("gui_lang", get_default_lang()))
         self.worker = None
         self.init_ui()
         self.load_settings()
+
+    def on_gui_lang_changed(self, index):
+        """保存界面语言选择（重启 GUI 生效）"""
+        self.settings.setValue("gui_lang", self.gui_lang_combo.itemData(index))
 
     def init_ui(self):
         """初始化界面"""
@@ -734,18 +740,18 @@ class MainWindow(QMainWindow):
         main_layout.setContentsMargins(16, 12, 16, 12)
 
         # ===== 顶部：输入文件路径 =====
-        file_group = QGroupBox("输入文件")
+        file_group = QGroupBox(T("input_group"))
         file_layout = QHBoxLayout(file_group)
 
         self.file_path_edit = QLineEdit()
-        self.file_path_edit.setPlaceholderText("选择视频/音频文件，或文件夹进行批量处理...")
+        self.file_path_edit.setPlaceholderText(T("input_placeholder"))
         self.file_path_edit.setMinimumWidth(400)
 
-        browse_btn = QPushButton("浏览...")
+        browse_btn = QPushButton(T("browse"))
         browse_btn.setFixedWidth(80)
         browse_btn.clicked.connect(self.browse_file)
 
-        browse_dir_btn = QPushButton("文件夹...")
+        browse_dir_btn = QPushButton(T("browse_folder"))
         browse_dir_btn.setFixedWidth(80)
         browse_dir_btn.clicked.connect(self.browse_input_dir)
 
@@ -764,7 +770,7 @@ class MainWindow(QMainWindow):
         left_col.setSpacing(10)
 
         # 模型与设备（卡片）
-        model_group = QGroupBox("模型与设备")
+        model_group = QGroupBox(T("model_group"))
         left_layout = QFormLayout(model_group)
         left_layout.setVerticalSpacing(8)
         left_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -787,13 +793,13 @@ class MainWindow(QMainWindow):
         model_browse_btn.clicked.connect(self.browse_model_dir)
         model_layout.addWidget(self.model_dir_edit)
         model_layout.addWidget(model_browse_btn)
-        left_layout.addRow("模型目录:", model_layout)
+        left_layout.addRow(T("model_dir"), model_layout)
 
         # 设备选择
         self.device_combo = QComboBox()
         self.device_combo.setMinimumWidth(260)
         populate_device_combo(self.device_combo, self.settings.value("device", "GPU.1"))
-        left_layout.addRow("推理设备:", self.device_combo)
+        left_layout.addRow(T("asr_device"), self.device_combo)
 
         # 缓存目录
         self.cache_dir_edit = QLineEdit()
@@ -801,31 +807,48 @@ class MainWindow(QMainWindow):
         if cache_dir in ("./model_cache", "model_cache"):
             cache_dir = str(CACHE_DIR)
         self.cache_dir_edit.setText(cache_dir)
-        left_layout.addRow("缓存目录:", self.cache_dir_edit)
+        left_layout.addRow(T("cache_dir"), self.cache_dir_edit)
 
         # 任务选择
         self.task_combo = QComboBox()
         self.task_combo.addItems(["transcribe", "translate"])
         self.task_combo.setCurrentText(self.settings.value("task", "transcribe"))
-        left_layout.addRow("任务:", self.task_combo)
+        left_layout.addRow(T("task"), self.task_combo)
 
         # 语言选择
         self.language_combo = QComboBox()
         self.language_combo.setEditable(True)
         self.language_combo.addItems(["auto", "en", "zh", "ja", "ko", "fr", "de", "es"])
         self.language_combo.setCurrentText(self.settings.value("language", "auto"))
-        left_layout.addRow("源语言:", self.language_combo)
+        left_layout.addRow(T("src_lang"), self.language_combo)
 
         # Batch size
         self.batch_size_spin = QSpinBox()
         self.batch_size_spin.setRange(1, 4)
         self.batch_size_spin.setValue(int(self.settings.value("batch_size", 1)))
-        left_layout.addRow("批大小:", self.batch_size_spin)
+        left_layout.addRow(T("batch_size"), self.batch_size_spin)
+
+        # 界面语言
+        self.gui_lang_combo = QComboBox()
+        self.gui_lang_combo.addItem("中文", "zh")
+        self.gui_lang_combo.addItem("English", "en")
+        saved_gui_lang = self.settings.value("gui_lang", get_default_lang())
+        idx = self.gui_lang_combo.findData(saved_gui_lang)
+        if idx >= 0:
+            self.gui_lang_combo.setCurrentIndex(idx)
+        self.gui_lang_combo.currentIndexChanged.connect(self.on_gui_lang_changed)
+        lang_row = QHBoxLayout()
+        lang_row.addWidget(self.gui_lang_combo)
+        lang_hint = QLabel(T("lang_restart_hint"))
+        lang_hint.setStyleSheet("color: gray; font-size: 11px;")
+        lang_row.addWidget(lang_hint)
+        lang_row.addStretch()
+        left_layout.addRow(T("gui_lang"), lang_row)
 
         left_col.addWidget(model_group)
 
         # 高级选项（卡片：简洁开关 + 弹出设置）
-        adv_group = QGroupBox("高级选项")
+        adv_group = QGroupBox(T("adv_group"))
         right_layout = QFormLayout(adv_group)
         right_layout.setVerticalSpacing(10)
         right_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -834,48 +857,48 @@ class MainWindow(QMainWindow):
 
         # VAD 开关 + 设置按钮
         vad_row = QHBoxLayout()
-        self.vad_check = QCheckBox("启用 VAD")
+        self.vad_check = QCheckBox(T("vad_enable"))
         self.vad_check.setChecked(self.settings.value("use_vad", True, type=bool))
-        self.vad_settings_btn = QPushButton("设置...")
+        self.vad_settings_btn = QPushButton(T("settings_btn"))
         self.vad_settings_btn.setFixedWidth(70)
         self.vad_settings_btn.clicked.connect(self.open_vad_settings)
         vad_row.addWidget(self.vad_check)
         vad_row.addWidget(self.vad_settings_btn)
         vad_row.addStretch()
-        right_layout.addRow("语音检测:", vad_row)
+        right_layout.addRow(T("vad_row"), vad_row)
 
         # Beam Search 开关 + 设置按钮
         beam_row = QHBoxLayout()
-        self.beam_search_check = QCheckBox("启用 Beam Search")
+        self.beam_search_check = QCheckBox(T("beam_enable"))
         self.beam_search_check.setChecked(
             self.settings.value("beam_search", False, type=bool)
         )
-        self.beam_settings_btn = QPushButton("设置...")
+        self.beam_settings_btn = QPushButton(T("settings_btn"))
         self.beam_settings_btn.setFixedWidth(70)
         self.beam_settings_btn.clicked.connect(self.open_beam_settings)
         beam_row.addWidget(self.beam_search_check)
         beam_row.addWidget(self.beam_settings_btn)
         beam_row.addStretch()
-        right_layout.addRow("解码方式:", beam_row)
+        right_layout.addRow(T("beam_row"), beam_row)
 
         # 保留音频
-        self.keep_audio_check = QCheckBox("保留中间音频文件")
+        self.keep_audio_check = QCheckBox(T("keep_audio"))
         self.keep_audio_check.setChecked(
             self.settings.value("keep_audio", False, type=bool)
         )
-        right_layout.addRow("其他:", self.keep_audio_check)
+        right_layout.addRow(T("other_row"), self.keep_audio_check)
 
         # 批量处理选项（输入为文件夹时生效，与 batch_generate.py 行为一致）
         batch_row = QHBoxLayout()
-        self.batch_skip_existing_check = QCheckBox("跳过已有字幕")
+        self.batch_skip_existing_check = QCheckBox(T("batch_skip_existing"))
         self.batch_skip_existing_check.setChecked(
             self.settings.value("batch_skip_existing", True, type=bool)
         )
-        self.batch_recursive_check = QCheckBox("递归子目录")
+        self.batch_recursive_check = QCheckBox(T("batch_recursive"))
         self.batch_recursive_check.setChecked(
             self.settings.value("batch_recursive", True, type=bool)
         )
-        self.batch_skip_marker_check = QCheckBox("跳过 -C/-CH 目录")
+        self.batch_skip_marker_check = QCheckBox(T("batch_skip_marker"))
         self.batch_skip_marker_check.setChecked(
             self.settings.value("batch_skip_marker", True, type=bool)
         )
@@ -883,15 +906,15 @@ class MainWindow(QMainWindow):
         batch_row.addWidget(self.batch_recursive_check)
         batch_row.addWidget(self.batch_skip_marker_check)
         batch_row.addStretch()
-        right_layout.addRow("批量:", batch_row)
+        right_layout.addRow(T("batch_row"), batch_row)
 
         left_col.addWidget(adv_group)
 
         # ===== 输出路径 =====
-        output_group = QGroupBox("输出")
+        output_group = QGroupBox(T("output_group"))
         output_layout = QHBoxLayout(output_group)
         self.output_edit = QLineEdit()
-        self.output_edit.setPlaceholderText("默认: 与输入文件同名 .srt")
+        self.output_edit.setPlaceholderText(T("output_placeholder"))
         output_browse_btn = QPushButton("...")
         output_browse_btn.setFixedWidth(30)
         output_browse_btn.clicked.connect(self.browse_output)
@@ -900,14 +923,14 @@ class MainWindow(QMainWindow):
         left_col.addWidget(output_group)
 
         # ===== 翻译设置 (Hy-MT2) =====
-        translate_group = QGroupBox("字幕翻译 (Hy-MT2 OpenVINO)")
+        translate_group = QGroupBox(T("translate_group"))
         translate_layout = QFormLayout(translate_group)
         translate_layout.setVerticalSpacing(8)
         translate_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         translate_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
         _style_form_labels(translate_group, 72)
 
-        self.translate_check = QCheckBox("转录后启用翻译")
+        self.translate_check = QCheckBox(T("translate_enable"))
         self.translate_check.setChecked(
             self.settings.value("enable_translate", True, type=bool)
         )
@@ -926,13 +949,13 @@ class MainWindow(QMainWindow):
         tl_browse_btn.clicked.connect(self.browse_translate_model)
         tl_layout.addWidget(self.translate_model_edit)
         tl_layout.addWidget(tl_browse_btn)
-        translate_layout.addRow("翻译模型:", tl_layout)
+        translate_layout.addRow(T("translate_model"), tl_layout)
 
         # 翻译设备
         self.translate_device_combo = QComboBox()
         self.translate_device_combo.setMinimumWidth(260)
         populate_device_combo(self.translate_device_combo, self.settings.value("translate_device", "GPU"))
-        translate_layout.addRow("翻译设备:", self.translate_device_combo)
+        translate_layout.addRow(T("translate_device"), self.translate_device_combo)
 
         # 目标语言
         self.tgt_lang_combo = QComboBox()
@@ -944,16 +967,16 @@ class MainWindow(QMainWindow):
         self.tgt_lang_combo.setCurrentText(
             self.settings.value("tgt_lang", "中文")
         )
-        translate_layout.addRow("目标语言:", self.tgt_lang_combo)
+        translate_layout.addRow(T("tgt_lang"), self.tgt_lang_combo)
 
         # 合并字符数
         self.merge_chars_spin = QSpinBox()
         self.merge_chars_spin.setRange(0, 500)
-        self.merge_chars_spin.setSpecialValueText("逐条翻译")
+        self.merge_chars_spin.setSpecialValueText(T("translate_line_by_line"))
         self.merge_chars_spin.setValue(
             int(self.settings.value("merge_chars", 200))
         )
-        translate_layout.addRow("合并字符数:", self.merge_chars_spin)
+        translate_layout.addRow(T("merge_chars"), self.merge_chars_spin)
 
         left_col.addWidget(translate_group)
 
@@ -961,13 +984,13 @@ class MainWindow(QMainWindow):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
 
-        self.start_btn = QPushButton("开 始")
+        self.start_btn = QPushButton(T("start"))
         self.start_btn.setObjectName("startBtn")
         self.start_btn.setCursor(Qt.PointingHandCursor)
         self.start_btn.setFixedWidth(120)
         self.start_btn.clicked.connect(self.start_processing)
 
-        self.stop_btn = QPushButton("停 止")
+        self.stop_btn = QPushButton(T("stop"))
         self.stop_btn.setObjectName("stopBtn")
         self.stop_btn.setCursor(Qt.PointingHandCursor)
         self.stop_btn.setFixedWidth(120)
@@ -988,7 +1011,7 @@ class MainWindow(QMainWindow):
         right_col.setSpacing(10)
 
         # 进度条
-        self.stage_label = QLabel("就绪")
+        self.stage_label = QLabel(T("ready"))
         right_col.addWidget(self.stage_label)
 
         self.progress_bar = QProgressBar()
@@ -998,7 +1021,7 @@ class MainWindow(QMainWindow):
         right_col.addWidget(self.progress_bar)
 
         # 日志区域
-        log_group = QGroupBox("日志")
+        log_group = QGroupBox(T("log_group"))
         log_layout = QVBoxLayout(log_group)
 
         self.log_text = QTextEdit()
@@ -1021,17 +1044,15 @@ class MainWindow(QMainWindow):
         main_layout.setStretchFactor(body_splitter, 1)
 
         # 状态栏
-        self.statusBar().showMessage("就绪")
+        self.statusBar().showMessage(T("ready"))
 
     # ===== 事件处理 =====
 
     def browse_file(self):
         """浏览输入文件"""
         file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择视频或音频文件", "",
-            "视频文件 (*.mp4 *.mkv *.avi *.mov *.flv *.wmv);;"
-            "音频文件 (*.wav *.mp3 *.flac *.m4a *.ogg);;"
-            "所有文件 (*.*)"
+            self, T("dlg_open_media"), "",
+            T("dlg_media_filter")
         )
         if file_path:
             self.file_path_edit.setText(file_path)
@@ -1041,20 +1062,20 @@ class MainWindow(QMainWindow):
 
     def browse_input_dir(self):
         """浏览输入文件夹（批量处理）"""
-        dir_path = QFileDialog.getExistingDirectory(self, "选择视频文件夹（批量处理）")
+        dir_path = QFileDialog.getExistingDirectory(self, T("dlg_open_folder"))
         if dir_path:
             self.file_path_edit.setText(dir_path)
             self.output_edit.clear()
 
     def browse_model_dir(self):
         """浏览模型目录"""
-        dir_path = QFileDialog.getExistingDirectory(self, "选择模型目录")
+        dir_path = QFileDialog.getExistingDirectory(self, T("dlg_model_dir"))
         if dir_path:
             self.model_dir_edit.setText(dir_path)
 
     def browse_translate_model(self):
         """浏览翻译模型目录"""
-        dir_path = QFileDialog.getExistingDirectory(self, "选择翻译模型目录")
+        dir_path = QFileDialog.getExistingDirectory(self, T("dlg_translate_model_dir"))
         if dir_path:
             self.translate_model_edit.setText(dir_path)
 
@@ -1071,7 +1092,7 @@ class MainWindow(QMainWindow):
     def browse_output(self):
         """浏览输出路径"""
         file_path, _ = QFileDialog.getSaveFileName(
-            self, "保存字幕文件", "", "SRT 字幕 (*.srt);;所有文件 (*.*)"
+            self, T("dlg_save_srt"), "", T("dlg_srt_filter")
         )
         if file_path:
             self.output_edit.setText(file_path)
@@ -1080,13 +1101,13 @@ class MainWindow(QMainWindow):
         """开始处理"""
         input_path = self.file_path_edit.text().strip()
         if not input_path:
-            QMessageBox.warning(self, "警告", "请选择输入文件或文件夹")
+            QMessageBox.warning(self, T("warn_title"), T("warn_no_input"))
             return
         if not Path(input_path).exists():
-            QMessageBox.warning(self, "警告", "输入路径不存在")
+            QMessageBox.warning(self, T("warn_title"), T("warn_no_path"))
             return
         if Path(input_path).is_dir() and self.output_edit.text().strip():
-            QMessageBox.warning(self, "警告", "批量处理会为每个输入文件生成同名 SRT，请清空自定义输出路径")
+            QMessageBox.warning(self, T("warn_title"), T("warn_batch_output"))
             return
 
         # 收集配置
@@ -1128,7 +1149,7 @@ class MainWindow(QMainWindow):
         self.progress_bar.setValue(0)
         self.log_text.clear()
         self.log_text.append("=" * 60)
-        self.log_text.append("开始处理...")
+        self.log_text.append(T("log_start"))
         self.log_text.append("=" * 60)
 
         # 启动工作线程
@@ -1144,7 +1165,7 @@ class MainWindow(QMainWindow):
         """停止处理"""
         if self.worker and self.worker.isRunning():
             self.worker.stop()
-            self.append_log("[INFO] 正在停止...")
+            self.append_log(T("log_stopping"))
             self.stop_btn.setEnabled(False)
 
     def on_finished(self, status, message):
@@ -1153,17 +1174,17 @@ class MainWindow(QMainWindow):
         self.stop_btn.setEnabled(False)
 
         if status == "success":
-            self.stage_label.setText("完成")
+            self.stage_label.setText(T("done"))
             self.progress_bar.setValue(100)
-            self.append_log(f"\n[成功] 字幕已保存: {message}")
-            QMessageBox.information(self, "完成", f"字幕生成成功!\n\n保存位置:\n{message}")
+            self.append_log(T("log_success_saved") + message)
+            QMessageBox.information(self, T("done_title"), T("done_msg") + message)
         elif status == "cancelled":
-            self.stage_label.setText("已停止")
-            self.statusBar().showMessage("已停止")
+            self.stage_label.setText(T("stopped"))
+            self.statusBar().showMessage(T("stopped"))
         else:
-            self.stage_label.setText("失败")
-            self.append_log(f"\n[失败] {message}")
-            QMessageBox.critical(self, "错误", f"处理失败:\n{message}")
+            self.stage_label.setText(T("failed"))
+            self.append_log(T("log_failed_msg") + message)
+            QMessageBox.critical(self, T("error_title"), T("error_msg") + message)
 
     def on_chunk_done(self, current, total, text):
         """每个 chunk 完成（进度条由 worker 的 _progress 驱动）"""
@@ -1228,6 +1249,12 @@ class MainWindow(QMainWindow):
 # ==================== 入口 ====================
 
 def main():
+    # 无窗口时先用裸 QSettings 读语言，保证首个窗口就是正确语言
+    from PySide6.QtCore import QCoreApplication
+    QCoreApplication.setOrganizationName("VideoSubGen")
+    QCoreApplication.setApplicationName("GUI")
+    set_lang(QSettings().value("gui_lang", get_default_lang()))
+
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setStyleSheet(STYLESHEET)
