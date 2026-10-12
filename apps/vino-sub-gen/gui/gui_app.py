@@ -722,7 +722,7 @@ class MainWindow(QMainWindow):
 
     def init_ui(self):
         """初始化界面"""
-        self.setWindowTitle("视频字幕生成工具 - OpenVINO Whisper")
+        self.setWindowTitle("Vino Sub Gen")
         # 不设置硬编码最小尺寸，让布局的 minimumSizeHint 自行约束，避免窗口缩到布局装不下
         self.resize(1280, 820)
 

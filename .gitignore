@@ -15,5 +15,9 @@ model_cache/
 models/Hy-MT2-7B-ov-int4/openvino_model.*
 models/Hy-MT2-7B-ov-int4/*.json
 models/Hy-MT2-7B-ov-int4/*.jinja
-test_data/\nsilero_vad.onnx
+# Local test media and VAD weights (not committed)
+test_data/
+silero_vad.onnx
+
+# Local Claude Code project instructions
 CLAUDE.md
