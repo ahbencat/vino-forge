@@ -730,7 +730,8 @@ class MainWindow(QMainWindow):
         """初始化界面"""
         self.setWindowTitle("Vino Sub Gen")
         # 不设置硬编码最小尺寸，让布局的 minimumSizeHint 自行约束，避免窗口缩到布局装不下
-        self.resize(1280, 820)
+        # 默认高度需 ≥ minimumSizeHint（含批量两行复选框后约 830），留 30px 余量
+        self.resize(1280, 860)
 
         # 中央部件
         central = QWidget()
@@ -748,11 +749,9 @@ class MainWindow(QMainWindow):
         self.file_path_edit.setMinimumWidth(400)
 
         browse_btn = QPushButton(T("browse"))
-        browse_btn.setFixedWidth(80)
         browse_btn.clicked.connect(self.browse_file)
 
         browse_dir_btn = QPushButton(T("browse_folder"))
-        browse_dir_btn.setFixedWidth(80)
         browse_dir_btn.clicked.connect(self.browse_input_dir)
 
         file_layout.addWidget(self.file_path_edit)
@@ -789,7 +788,6 @@ class MainWindow(QMainWindow):
             self.settings.setValue("model_dir", saved_model_dir)
         self.model_dir_edit.setText(saved_model_dir)
         model_browse_btn = QPushButton("...")
-        model_browse_btn.setFixedWidth(30)
         model_browse_btn.clicked.connect(self.browse_model_dir)
         model_layout.addWidget(self.model_dir_edit)
         model_layout.addWidget(model_browse_btn)
@@ -848,19 +846,19 @@ class MainWindow(QMainWindow):
         left_col.addWidget(model_group)
 
         # 高级选项（卡片：简洁开关 + 弹出设置）
+        # 标签列放宽以容纳英文（如 "Decoding:"），复选框固定自然宽度防止均分时文字省略
         adv_group = QGroupBox(T("adv_group"))
         right_layout = QFormLayout(adv_group)
         right_layout.setVerticalSpacing(10)
         right_layout.setLabelAlignment(Qt.AlignRight | Qt.AlignVCenter)
         right_layout.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
-        _style_form_labels(adv_group, 72)
+        _style_form_labels(adv_group, 112)
 
         # VAD 开关 + 设置按钮
         vad_row = QHBoxLayout()
         self.vad_check = QCheckBox(T("vad_enable"))
         self.vad_check.setChecked(self.settings.value("use_vad", True, type=bool))
         self.vad_settings_btn = QPushButton(T("settings_btn"))
-        self.vad_settings_btn.setFixedWidth(70)
         self.vad_settings_btn.clicked.connect(self.open_vad_settings)
         vad_row.addWidget(self.vad_check)
         vad_row.addWidget(self.vad_settings_btn)
@@ -874,7 +872,6 @@ class MainWindow(QMainWindow):
             self.settings.value("beam_search", False, type=bool)
         )
         self.beam_settings_btn = QPushButton(T("settings_btn"))
-        self.beam_settings_btn.setFixedWidth(70)
         self.beam_settings_btn.clicked.connect(self.open_beam_settings)
         beam_row.addWidget(self.beam_search_check)
         beam_row.addWidget(self.beam_settings_btn)
@@ -889,7 +886,8 @@ class MainWindow(QMainWindow):
         right_layout.addRow(T("other_row"), self.keep_audio_check)
 
         # 批量处理选项（输入为文件夹时生效，与 batch_generate.py 行为一致）
-        batch_row = QHBoxLayout()
+        # 英文标签较长，三个复选框一行放不下，分两行展示
+        batch_row1 = QHBoxLayout()
         self.batch_skip_existing_check = QCheckBox(T("batch_skip_existing"))
         self.batch_skip_existing_check.setChecked(
             self.settings.value("batch_skip_existing", True, type=bool)
@@ -898,15 +896,19 @@ class MainWindow(QMainWindow):
         self.batch_recursive_check.setChecked(
             self.settings.value("batch_recursive", True, type=bool)
         )
+        batch_row1.addWidget(self.batch_skip_existing_check)
+        batch_row1.addWidget(self.batch_recursive_check)
+        batch_row1.addStretch()
+        right_layout.addRow(T("batch_row"), batch_row1)
+
+        batch_row2 = QHBoxLayout()
         self.batch_skip_marker_check = QCheckBox(T("batch_skip_marker"))
         self.batch_skip_marker_check.setChecked(
             self.settings.value("batch_skip_marker", True, type=bool)
         )
-        batch_row.addWidget(self.batch_skip_existing_check)
-        batch_row.addWidget(self.batch_recursive_check)
-        batch_row.addWidget(self.batch_skip_marker_check)
-        batch_row.addStretch()
-        right_layout.addRow(T("batch_row"), batch_row)
+        batch_row2.addWidget(self.batch_skip_marker_check)
+        batch_row2.addStretch()
+        right_layout.addRow("", batch_row2)
 
         left_col.addWidget(adv_group)
 
@@ -916,7 +918,6 @@ class MainWindow(QMainWindow):
         self.output_edit = QLineEdit()
         self.output_edit.setPlaceholderText(T("output_placeholder"))
         output_browse_btn = QPushButton("...")
-        output_browse_btn.setFixedWidth(30)
         output_browse_btn.clicked.connect(self.browse_output)
         output_layout.addWidget(self.output_edit)
         output_layout.addWidget(output_browse_btn)
@@ -945,7 +946,6 @@ class MainWindow(QMainWindow):
             saved_tl_dir = str(default_trans_model)
         self.translate_model_edit.setText(saved_tl_dir)
         tl_browse_btn = QPushButton("...")
-        tl_browse_btn.setFixedWidth(30)
         tl_browse_btn.clicked.connect(self.browse_translate_model)
         tl_layout.addWidget(self.translate_model_edit)
         tl_layout.addWidget(tl_browse_btn)
@@ -1037,7 +1037,7 @@ class MainWindow(QMainWindow):
         # 左侧设定区宽度固定偏好, 日志占余下宽度; 禁止把设定区拖到字段裁切
         body_splitter.setCollapsible(0, False)
         left_widget.setMinimumWidth(500)
-        body_splitter.setSizes([520, 760])
+        body_splitter.setSizes([520, 720])
         body_splitter.setStretchFactor(0, 0)
         body_splitter.setStretchFactor(1, 1)
         main_layout.addWidget(body_splitter)

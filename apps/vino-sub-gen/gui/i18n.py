@@ -38,7 +38,7 @@ STRINGS: dict[str, dict[str, str]] = {
     "src_lang": {"zh": "源语言:", "en": "Source lang:"},
     "batch_size": {"zh": "批大小:", "en": "Batch size:"},
     "gui_lang": {"zh": "界面语言:", "en": "Language:"},
-    "lang_restart_hint": {"zh": "切换后重启生效", "en": "Takes effect after restart"},
+    "lang_restart_hint": {"zh": "切换后重启生效", "en": "Restart to apply"},
     # ---- advanced card ----
     "adv_group": {"zh": "高级选项", "en": "Advanced"},
     "vad_row": {"zh": "语音检测:", "en": "VAD:"},
@@ -49,15 +49,15 @@ STRINGS: dict[str, dict[str, str]] = {
     "other_row": {"zh": "其他:", "en": "Other:"},
     "keep_audio": {"zh": "保留中间音频文件", "en": "Keep intermediate audio"},
     "batch_row": {"zh": "批量:", "en": "Batch:"},
-    "batch_skip_existing": {"zh": "跳过已有字幕", "en": "Skip existing SRT"},
-    "batch_recursive": {"zh": "递归子目录", "en": "Recursive scan"},
-    "batch_skip_marker": {"zh": "跳过 -C/-CH 目录", "en": "Skip -C/-CH folders"},
+    "batch_skip_existing": {"zh": "跳过已有字幕", "en": "Skip existing"},
+    "batch_recursive": {"zh": "递归子目录", "en": "Recursive"},
+    "batch_skip_marker": {"zh": "跳过 -C/-CH 目录", "en": "Skip -C/-CH"},
     # ---- output card ----
     "output_group": {"zh": "输出", "en": "Output"},
     "output_placeholder": {"zh": "默认: 与输入文件同名 .srt", "en": "Default: same name as input (.srt)"},
     # ---- translation card ----
     "translate_group": {"zh": "字幕翻译 (Hy-MT2 OpenVINO)", "en": "Subtitle Translation (Hy-MT2 OpenVINO)"},
-    "translate_enable": {"zh": "转录后启用翻译", "en": "Translate after transcription"},
+    "translate_enable": {"zh": "转录后启用翻译", "en": "Enable translation"},
     "translate_model": {"zh": "翻译模型:", "en": "MT model:"},
     "translate_device": {"zh": "翻译设备:", "en": "MT device:"},
     "tgt_lang": {"zh": "目标语言:", "en": "Target lang:"},
