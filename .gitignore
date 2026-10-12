@@ -21,3 +21,8 @@ silero_vad.onnx
 
 # Local Claude Code project instructions
 CLAUDE.md
+
+# PyInstaller build artifacts (spec is tracked, outputs are not)
+build/
+dist/
+releases/

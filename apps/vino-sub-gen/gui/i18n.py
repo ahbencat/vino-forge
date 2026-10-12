@@ -38,7 +38,9 @@ STRINGS: dict[str, dict[str, str]] = {
     "src_lang": {"zh": "源语言:", "en": "Source lang:"},
     "batch_size": {"zh": "批大小:", "en": "Batch size:"},
     "gui_lang": {"zh": "界面语言:", "en": "Language:"},
-    "lang_restart_hint": {"zh": "切换后重启生效", "en": "Restart to apply"},
+    "lang_apply": {"zh": "应用并重启", "en": "Apply & Restart"},
+    "lang_apply_hint": {"zh": "点击后自动重启应用", "en": "Restarts the app automatically"},
+    "warn_busy": {"zh": "正在处理中，请先停止当前任务再切换语言", "en": "Processing in progress — stop the current task before switching language"},
     # ---- advanced card ----
     "adv_group": {"zh": "高级选项", "en": "Advanced"},
     "vad_row": {"zh": "语音检测:", "en": "VAD:"},

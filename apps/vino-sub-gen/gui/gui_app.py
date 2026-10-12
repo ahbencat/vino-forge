@@ -24,13 +24,18 @@ def _style_form_labels(container, width=72):
     """在容器 widget 上设置样式表，约束其下所有 QLabel 的最小宽度"""
     container.setStyleSheet(f"QLabel {{ min-width: {width}px; }}")
 from PySide6.QtCore import (
-    QThread, Signal, Qt, QSettings
+    QThread, Signal, Qt, QSettings, QProcess
 )
 from PySide6.QtGui import QFont, QTextCursor
 
 
-ROOT_DIR = Path(__file__).resolve().parents[3]
-APP_ROOT = ROOT_DIR / "apps" / "vino-sub-gen"
+if getattr(sys, "frozen", False):
+    # PyInstaller: 仓库根目录即 exe 所在目录
+    ROOT_DIR = Path(sys.executable).resolve().parent
+    APP_ROOT = ROOT_DIR / "apps" / "vino-sub-gen"
+else:
+    ROOT_DIR = Path(__file__).resolve().parents[3]
+    APP_ROOT = ROOT_DIR / "apps" / "vino-sub-gen"
 sys.path.insert(0, str(ROOT_DIR / "libs"))
 sys.path.insert(0, str(APP_ROOT))
 
@@ -723,8 +728,26 @@ class MainWindow(QMainWindow):
         self.load_settings()
 
     def on_gui_lang_changed(self, index):
-        """保存界面语言选择（重启 GUI 生效）"""
-        self.settings.setValue("gui_lang", self.gui_lang_combo.itemData(index))
+        """语言选择变化：仅在有未应用变化时启用 Apply 按钮"""
+        pending = self.gui_lang_combo.itemData(index)
+        saved = self.settings.value("gui_lang", get_default_lang())
+        self.gui_apply_btn.setEnabled(pending != saved)
+
+    def apply_gui_lang(self):
+        """保存语言并重启应用（冻结/脚本运行均支持）"""
+        if self.worker and self.worker.isRunning():
+            QMessageBox.warning(self, T("warn_title"), T("warn_busy"))
+            return
+        lang = self.gui_lang_combo.currentData()
+        if lang is None:
+            return
+        self.settings.setValue("gui_lang", lang)
+        if getattr(sys, "frozen", False):
+            # PyInstaller: exe 自身即为入口，不带参数
+            QProcess.startDetached(sys.executable, [])
+        else:
+            QProcess.startDetached(sys.executable, sys.argv)
+        QApplication.quit()
 
     def init_ui(self):
         """初始化界面"""
@@ -826,22 +849,28 @@ class MainWindow(QMainWindow):
         self.batch_size_spin.setValue(int(self.settings.value("batch_size", 1)))
         left_layout.addRow(T("batch_size"), self.batch_size_spin)
 
-        # 界面语言
+        # 界面语言（选择后需点 Apply 按钮重启生效）
         self.gui_lang_combo = QComboBox()
         self.gui_lang_combo.addItem("中文", "zh")
         self.gui_lang_combo.addItem("English", "en")
-        saved_gui_lang = self.settings.value("gui_lang", get_default_lang())
-        idx = self.gui_lang_combo.findData(saved_gui_lang)
-        if idx >= 0:
-            self.gui_lang_combo.setCurrentIndex(idx)
         self.gui_lang_combo.currentIndexChanged.connect(self.on_gui_lang_changed)
+        self.gui_apply_btn = QPushButton(T("lang_apply"))
+        self.gui_apply_btn.setEnabled(False)  # 无待应用变化时禁用
+        self.gui_apply_btn.clicked.connect(self.apply_gui_lang)
         lang_row = QHBoxLayout()
         lang_row.addWidget(self.gui_lang_combo)
-        lang_hint = QLabel(T("lang_restart_hint"))
+        lang_row.addWidget(self.gui_apply_btn)
+        lang_hint = QLabel(T("lang_apply_hint"))
         lang_hint.setStyleSheet("color: gray; font-size: 11px;")
         lang_row.addWidget(lang_hint)
         lang_row.addStretch()
         left_layout.addRow(T("gui_lang"), lang_row)
+        # 恢复已保存的语言选项（放在信号连接之后，避免初始化触发 on_gui_lang_changed）
+        saved_gui_lang = self.settings.value("gui_lang", get_default_lang())
+        idx = self.gui_lang_combo.findData(saved_gui_lang)
+        if idx >= 0:
+            self.gui_lang_combo.setCurrentIndex(idx)
+        self.gui_apply_btn.setEnabled(False)
 
         left_col.addWidget(model_group)
 
